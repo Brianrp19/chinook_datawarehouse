@@ -94,7 +94,7 @@ Sigue estos pasos para levantar el Data Warehouse en tu máquina local:
 
 ### Paso 2: Clonar el Repositorio
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/Brianrp19/chinook_datawarehouse.git
 cd chinook_datawarehouse
 ```
 
