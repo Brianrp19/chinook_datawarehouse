@@ -98,30 +98,51 @@ git clone https://github.com/Brianrp19/chinook_datawarehouse.git
 cd chinook_datawarehouse
 ```
 
-### Paso 3: Crear y Activar el Entorno Virtual
-En Windows (PowerShell):
+### Paso 3: Configuración automática en Ubuntu/Linux
+
+El script crea el entorno virtual si hace falta, instala las dependencias,
+crea e inicia un clúster PostgreSQL privado dentro del proyecto, crea la base
+de datos, aplica el esquema y ejecuta el ETL completo:
+
+```bash
+./scripts/setup_local.sh
+```
+
+No requiere `sudo` ni guarda contraseñas. El servidor privado usa el puerto
+`55432`, de modo que no interfiere con una instalación PostgreSQL del sistema.
+Para detenerlo usa `./scripts/stop_local_postgres.sh`.
+
+Una vez configurado, ejecuta nuevamente el pipeline con:
+
+```bash
+./scripts/run_etl.sh
+```
+
+### Paso 4: Configuración manual en Windows
+
+Crear y activar el entorno virtual en PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### Paso 4: Instalar Dependencias
+Instalar las dependencias:
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-### Paso 5: Crear la Base de Datos en pgAdmin
+Crear la base de datos en pgAdmin:
 1. Abre **pgAdmin** y conéctate a tu servidor local de PostgreSQL.
 2. Haz clic derecho sobre **Databases** > **Create** > **Database...**
 3. Nómbrala: `chinook_dw`
 4. Guarda los cambios.
 
-### Paso 6: Crear el Esquema Físico (Tablas)
+Crear el esquema físico:
 1. En pgAdmin, haz clic derecho sobre `chinook_dw` > **Query Tool**.
 2. Abre o pega el contenido del archivo `sql/create_dw.sql`.
 3. Ejecuta la consulta (`F5`). Debe confirmar la creación de las 5 tablas y sus índices.
 
-### Paso 7: Configurar Credenciales y Ejecutar el ETL
+Configurar credenciales y ejecutar el ETL:
 En tu terminal de PowerShell con `(.venv)` activo:
 ```powershell
 $env:PGPASSWORD="TU_CONTRASEÑA_DE_POSTGRESQL"

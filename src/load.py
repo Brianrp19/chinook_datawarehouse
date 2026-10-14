@@ -2,24 +2,27 @@ from decimal import Decimal
 import os
 from pathlib import Path
 import pandas as pd
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from transform import transformar_datos
 
 
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_DIR / ".env")
+
+
 def get_db_config():
-    """Obtiene la configuración de conexión a PostgreSQL exigiendo la variable de entorno PGPASSWORD."""
+    """Obtiene la configuración PostgreSQL desde .env o el entorno.
+
+    En Linux se usa por defecto el socket local y autenticación peer, por lo
+    que no es necesario almacenar una contraseña en el proyecto.
+    """
     password = os.getenv("PGPASSWORD")
-    if not password:
-        raise RuntimeError(
-            "Falta la variable de entorno PGPASSWORD.\n"
-            "Configúrala en PowerShell antes de ejecutar con:\n"
-            '  $env:PGPASSWORD="TU_CONTRASEÑA"'
-        )
     return {
-        "host": os.getenv("PGHOST", "localhost"),
+        "host": os.getenv("PGHOST", "/var/run/postgresql"),
         "port": os.getenv("PGPORT", "5432"),
-        "user": os.getenv("PGUSER", "postgres"),
+        "user": os.getenv("PGUSER", os.getenv("USER", "postgres")),
         "password": password,
         "dbname": os.getenv("PGDATABASE", "chinook_dw"),
     }
