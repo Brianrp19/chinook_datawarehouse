@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Asegurar que la carpeta src esté en sys.path para importaciones locales
+SRC_DIR = Path(__file__).resolve().parent
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 from prefect import flow, task
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
@@ -22,11 +30,11 @@ def get_engine():
     return create_engine(db_url)
 
 @task(name="Validar Integridad", log_prints=True)
-def task_validar_integridad():
+def task_validar_integridad() -> None:
     validar_integridad()
     
 @task(name="Validar Calidad y Reglas de Negocio", log_prints=True)
-def task_validar_calidad_negocio():
+def task_validar_calidad_negocio() -> None:
     validar_calidad_negocio()
 
 @task(name="Transformar Datos", log_prints=True)
