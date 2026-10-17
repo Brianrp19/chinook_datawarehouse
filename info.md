@@ -1,5 +1,13 @@
 # Bitácora de avance del proyecto Chinook
 
+## Prioridad para mañana: separar el arranque de la página y la ejecución del ETL
+
+Quiero revisar cómo levantar la página de Prefect sin ejecutar automáticamente las tareas del DW. Debo distinguir tres acciones: iniciar el servidor y la interfaz, iniciar el proceso `serve` que espera solicitudes y ejecutar el ETL mediante el botón Run.
+
+La página puede estar disponible solo con el servidor encendido para consultar el historial. Para atender ejecuciones desde Run, también debe estar activo el proceso `serve`. Sin una programación automática, iniciar estos procesos no debe ejecutar la validación, transformación ni carga.
+
+Mañana revisaré `src/levantar_pagina.py`, el punto de entrada de `src/etl_flow.py` y los comandos documentados para comprobar esta separación. El deployment apunta al flujo; el flujo es quien llama a las tareas. Quiero comprobar que los datos del DW solo se recarguen cuando solicite una ejecución y dejar claro qué terminal debe permanecer abierta para cada función.
+
 Fecha de cierre de la sesión: 17 de octubre de 2026.
 
 ## Contexto y agenda de trabajo
