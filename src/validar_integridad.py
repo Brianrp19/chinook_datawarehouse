@@ -1,52 +1,80 @@
 from pathlib import Path
 import pandas as pd
 
-# Definir ruta hacia data/raw (compatible si se ejecuta desde la raíz o dentro de src)
-base_dir = Path(__file__).resolve().parent.parent
-raw_dir = base_dir / "data" / "raw"
 
-# Carga de datasets
-album = pd.read_csv(raw_dir / "Album.csv")
-artist = pd.read_csv(raw_dir / "Artist.csv")
-customer = pd.read_csv(raw_dir / "Customer.csv")
-employee = pd.read_csv(raw_dir / "Employee.csv")
-genre = pd.read_csv(raw_dir / "Genre.csv")
-invoice = pd.read_csv(raw_dir / "Invoice.csv")
-invoice_line = pd.read_csv(raw_dir / "InvoiceLine.csv")
-media_type = pd.read_csv(raw_dir / "MediaType.csv")
-playlist = pd.read_csv(raw_dir / "Playlist.csv")
-playlist_track = pd.read_csv(raw_dir / "PlaylistTrack.csv")
-track = pd.read_csv(raw_dir / "Track.csv")
 
-print("=== INTEGRIDAD REFERENCIAL ===")
+def validar_integridad():
+    raw_dir = Path(__file__).resolve().parent.parent / "data" / "raw"
 
-print("\nAlbum -> Artist")
-print(album[~album["ArtistId"].isin(artist["ArtistId"])])
 
-print("\nTrack -> Album")
-print(track[~track["AlbumId"].isin(album["AlbumId"])])
+    claves = {
+        "Album": ["AlbumId"],
+        "Artist": ["ArtistId"],
+        "Customer": ["CustomerId"],
+        "Employee": ["EmployeeId"],
+        "Genre": ["GenreId"],
+        "Invoice": ["InvoiceId"],
+        "InvoiceLine": ["InvoiceLineId"],
+        "MediaType": ["MediaTypeId"],
+        "Playlist": ["PlaylistId"],
+        "PlaylistTrack": ["PlaylistId", "TrackId"],
+        "Track": ["TrackId"],
+    }
 
-print("\nTrack -> Genre")
-print(track[~track["GenreId"].isin(genre["GenreId"])])
+    datos = {
+        nombre: pd.read_csv(raw_dir / f"{nombre}.csv") for nombre in claves.keys()
+    }
 
-print("\nTrack -> MediaType")
-print(track[~track["MediaTypeId"].isin(media_type["MediaTypeId"])])
+    errores = []
 
-print("\nInvoice -> Customer")
-print(invoice[~invoice["CustomerId"].isin(customer["CustomerId"])])
+    for nombre, columnas in claves.items():
+        tabla = datos[nombre]
 
-print("\nInvoiceLine -> Invoice")
-print(invoice_line[~invoice_line["InvoiceId"].isin(invoice["InvoiceId"])])
+        nulos = tabla[columnas].isna().any(axis=1).sum()
+        duplicados = tabla.duplicated(subset=columnas).sum()
 
-# Validaciones complementarias de integridad
-print("\nInvoiceLine -> Track")
-print(invoice_line[~invoice_line["TrackId"].isin(track["TrackId"])])
+        if nulos > 0:
+            errores.append(f"{nombre}: {nulos} filas con valores nulos en {columnas}")
+        if duplicados > 0:
+            errores.append(f"{nombre}: {duplicados} filas duplicadas en {columnas}")
 
-print("\nCustomer -> Employee (SupportRepId)")
-print(customer[~customer["SupportRepId"].isin(employee["EmployeeId"])])
+    relaciones = [
+        ("Album", "ArtistId", "Artist", "ArtistId", False),
+        ("Track", "AlbumId", "Album", "AlbumId", False),
+        ("Track", "GenreId", "Genre", "GenreId", False),
+        ("Track", "MediaTypeId", "MediaType", "MediaTypeId", False),
+        ("Invoice", "CustomerId", "Customer", "CustomerId", False),
+        ("InvoiceLine", "InvoiceId", "Invoice", "InvoiceId", False),
+        ("InvoiceLine", "TrackId", "Track", "TrackId", False),
+        ("Customer", "SupportRepId", "Employee", "EmployeeId", False),
+        ("PlaylistTrack", "PlaylistId", "Playlist", "PlaylistId", False),
+        ("PlaylistTrack", "TrackId", "Track", "TrackId", False),
+        ("Employee", "ReportsTo", "Employee", "EmployeeId", True),
+    ] 
 
-print("\nPlaylistTrack -> Playlist")
-print(playlist_track[~playlist_track["PlaylistId"].isin(playlist["PlaylistId"])])
+    # en resumidas cuentas entran los datos del arreglo de arriva con las relaciones para poder saber si hay erroes o si hay integridad antes de pasar al data warehouse
+    for origen, columna, destino, clave, permite_nulos in relaciones:
+        valores = datos [origen][columna]
+        referencias = datos[destino][clave]
 
-print("\nPlaylistTrack -> Track")
-print(playlist_track[~playlist_track["TrackId"].isin(track["TrackId"])])
+        invalidos = ~valores.isin(referencias)
+        if permite_nulos:
+            invalidos = invalidos & valores.notna()
+
+        cantidad = int(invalidos.sum())
+        if cantidad > 0:
+            errores.append(
+                f"{origen}.{columna} tiene {cantidad} valores que no existen en {destino}.{clave}"
+            )
+
+    if errores:
+        raise ValueError(
+            "Errores de integridad referencial encontrados:\n" + "\n".join(errores)
+        )
+
+    if not errores:
+        print("No se encontraron errores de integridad. Todas las relaciones y claves son válidas.")            
+
+
+if __name__ == "__main__":
+    validar_integridad()

@@ -4,8 +4,9 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, Connection
 from transform import transformar_datos
+from contextlib import nullcontext
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -59,11 +60,38 @@ def load_data(engine, data_dict: dict):
 
 def verify_dw_data(engine):
     """Ejecuta consultas de control de calidad y cuadratura directamente en el Data Warehouse."""
+
+    #lee funtes de los daos CVS para contro de que cuadre la info
+    #lee las lineas debene de llegar al data warehouse y el total de ventas debe cuadrar con la fuente original
+    raw_dir = PROJECT_DIR / "data" / "raw"
+
+    source_lines = pd.read_csv(
+        raw_dir / "InvoiceLine.csv",
+        dtype={"UnitPrice": str},
+    )
+
+    expected_count = len(source_lines)
+
+    expected_total = sum(
+        (
+            Decimal(price) * int(quantity)
+            for price, quantity in zip(
+                source_lines["UnitPrice"],
+                source_lines["Quantity"],
+            )
+        ),
+        Decimal("0"),
+    )
+
     print("\n" + "=" * 70)
     print("CONTROL DE CALIDAD Y CUADRATURA DEL DATA WAREHOUSE")
     print("=" * 70)
-    
-    with engine.connect() as conn:
+
+    contexto = (
+        nullcontext(engine) if isinstance(engine, Connection) else engine.begin()
+    )
+
+    with contexto as conn:
         # 1. Conteos de filas por tabla
         tablas = ["dim_date", "dim_employee", "dim_customer", "dim_track", "fact_sales"]
         for t in tablas:
@@ -78,8 +106,11 @@ def verify_dw_data(engine):
 
         # 3. Suma total de ventas y conteo de hechos
         fact_count = conn.execute(text("SELECT COUNT(*) FROM fact_sales")).scalar()
-        total_ventas = conn.execute(text("SELECT SUM(total_amount) FROM fact_sales")).scalar()
-        print(f"  * Total acumulado en fact_sales : ${total_ventas:,.2f} (Esperado: $2,328.60)")
+        total_ventas = conn.execute(
+            text("SELECT COALESCE(SUM(total_amount), 0) FROM fact_sales")
+        ).scalar()
+        print(f"\n * total de acumulado den fact_sales : ${total_ventas} ")
+        print(f"\n Esperado: ${expected_total}")
 
         # 4. Verificación de consistencia matemática
         inconsistencias = conn.execute(
@@ -91,18 +122,45 @@ def verify_dw_data(engine):
         print("\n" + "-" * 70)
         print("CONCILIACION FUENTE ORIGINAL vs. DATA WAREHOUSE")
         print("-" * 70)
-        print(f"  Filas InvoiceLine.csv : 2240   | Filas fact_sales : {fact_count}")
-        print(f"  Monto Fuente Total    : $2328.60 | Monto DW Total   : ${total_ventas}")
-        print(f"  Errores Aritméticos   : 0        | Errores en DW    : {inconsistencias}")
+        print(
+            f"  Filas fuente : {expected_count} "
+            f"| Filas DW : {fact_count}"
+        )
 
-        if (
-            fact_count == 2240
-            and total_ventas == Decimal("2328.60")
-            and inconsistencias == 0
-        ):
-            print("\n>>> VALIDACION EXITOSA: El Data Warehouse quedó 100% consistente y cuadrado.")
-        else:
-            print("\n>>> ATENCION: Hay discrepancias en la cuadratura del Data Warehouse.")
+        print(
+            f"  Monto fuente : ${expected_total:,.2f} "
+            f"| Monto DW : ${total_ventas:,.2f}"
+        )
+        print(f"  Inconsistencias matemáticas en DW : {inconsistencias}")
+
+
+        errores = []
+        if fact_count != expected_count:
+            errores.append(
+                f"filas : se esperaban {expected_count},"
+                f"pero se encontraron {fact_count}"
+            )
+
+        if total_ventas != expected_total:
+            errores.append(
+                f"monto : se esperaban ${expected_total:,.2f},"
+                f"pero se encontraron ${total_ventas:,.2f}"
+            )
+
+        if inconsistencias != 0:
+            errores.append(
+                f"inconsistencias matemáticas : se esperaban 0,"
+                f"pero se encontraron {inconsistencias}"
+            )
+
+        if errores:
+            raise ValueError(
+                "ERROR DE VALIDACION DEL DATA WAREHOUSE:\n"
+                + "\n".join(errores)
+            )
+
+        if not errores:
+            print("\n¡Validación exitosa! El Data Warehouse está cuadrado y consistente con la fuente original.")
 
 
 def main():
