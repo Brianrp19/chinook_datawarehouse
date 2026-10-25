@@ -34,3 +34,7 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+# Archivos temporales de Office / Excel
+~$*.xlsx
+~$*.xls
+*.tmp
