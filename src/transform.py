@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+from extract_staging import extract_staging_data
 
 
 def get_raw_data_dir() -> Path:
@@ -7,22 +8,8 @@ def get_raw_data_dir() -> Path:
 
 
 def extract_raw_data():
-    """Extrae todos los datasets requeridos desde data/raw."""
-    raw_dir = get_raw_data_dir()
-    data = {
-        "album": pd.read_csv(raw_dir / "Album.csv"),
-        "artist": pd.read_csv(raw_dir / "Artist.csv"),
-        "customer": pd.read_csv(raw_dir / "Customer.csv"),
-        "employee": pd.read_csv(raw_dir / "Employee.csv"),
-        "genre": pd.read_csv(raw_dir / "Genre.csv"),
-        "invoice": pd.read_csv(raw_dir / "Invoice.csv"),
-        "invoice_line": pd.read_csv(raw_dir / "InvoiceLine.csv"),
-        "media_type": pd.read_csv(raw_dir / "MediaType.csv"),
-        "playlist": pd.read_csv(raw_dir / "Playlist.csv"),
-        "playlist_track": pd.read_csv(raw_dir / "PlaylistTrack.csv"),
-        "track": pd.read_csv(raw_dir / "Track.csv"),
-    }
-    return data
+    """Extrae todos los datasets requeridos desde PostgreSQL Staging."""
+    return extract_staging_data()
 
 
 def build_dim_date(invoice_df: pd.DataFrame) -> pd.DataFrame:
@@ -289,10 +276,10 @@ def build_fact_sales(
     return sales[column_order]
 
 
-def transformar_datos():
+def transformar_datos(raw_data: dict | None = None):
     """Ejecuta el pipeline completo de transformación (T) y retorna los DataFrames listos."""
     print("Iniciando Transformacion (T) del Data Warehouse...")
-    raw = extract_raw_data()
+    raw = raw_data if raw_data is not None else extract_staging_data()
 
     dim_date = build_dim_date(raw["invoice"])
     dim_employee = build_dim_employee(raw["employee"])

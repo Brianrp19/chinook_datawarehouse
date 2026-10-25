@@ -1,12 +1,23 @@
-from pathlib import Path
+﻿from pathlib import Path
 import pandas as pd
+from extract_staging import extract_staging_data
+
+SOURCE_NAME_MAP = {
+    "Album": "album",
+    "Artist": "artist",
+    "Customer": "customer",
+    "Employee": "employee",
+    "Genre": "genre",
+    "Invoice": "invoice",
+    "InvoiceLine": "invoice_line",
+    "MediaType": "media_type",
+    "Playlist": "playlist",
+    "PlaylistTrack": "playlist_track",
+    "Track": "track",
+}
 
 
-
-def validar_integridad():
-    raw_dir = Path(__file__).resolve().parent.parent / "data" / "raw"
-
-
+def validar_integridad(raw_data: dict | None = None):
     claves = {
         "Album": ["AlbumId"],
         "Artist": ["ArtistId"],
@@ -21,9 +32,15 @@ def validar_integridad():
         "Track": ["TrackId"],
     }
 
-    datos = {
-        nombre: pd.read_csv(raw_dir / f"{nombre}.csv") for nombre in claves.keys()
-    }
+    if raw_data is None:
+        raw_data = extract_staging_data()
+
+    datos = {}
+    for nombre in claves.keys():
+        key = SOURCE_NAME_MAP.get(nombre, nombre.lower())
+        datos[nombre] = raw_data.get(nombre, raw_data.get(key))
+        if datos[nombre] is None:
+            raise KeyError(f"No se encontró la tabla {nombre} en los datos extraídos.")
 
     errores = []
 
@@ -52,9 +69,9 @@ def validar_integridad():
         ("Employee", "ReportsTo", "Employee", "EmployeeId", True),
     ] 
 
-    # en resumidas cuentas entran los datos del arreglo de arriva con las relaciones para poder saber si hay erroes o si hay integridad antes de pasar al data warehouse
+    # Validación de integridad referencial entre tablas
     for origen, columna, destino, clave, permite_nulos in relaciones:
-        valores = datos [origen][columna]
+        valores = datos[origen][columna]
         referencias = datos[destino][clave]
 
         invalidos = ~valores.isin(referencias)

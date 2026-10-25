@@ -1,20 +1,20 @@
 from pathlib import Path
 import pandas as pd
+from extract_staging import extract_staging_data
 
-raw_dir = Path(__file__).resolve().parent.parent / "data" / "raw"
-
-# Carga de datasets
-track = pd.read_csv(raw_dir / "Track.csv")
-album = pd.read_csv(raw_dir / "Album.csv")
-artist = pd.read_csv(raw_dir / "Artist.csv")
-invoice = pd.read_csv(raw_dir / "Invoice.csv")
-customer = pd.read_csv(raw_dir / "Customer.csv")
-employee = pd.read_csv(raw_dir / "Employee.csv")
+# Carga de datasets desde Staging
+raw_data = extract_staging_data()
+track = raw_data["track"]
+album = raw_data["album"]
+artist = raw_data["artist"]
+invoice = raw_data["invoice"]
+customer = raw_data["customer"]
+employee = raw_data["employee"]
 
 invoice["InvoiceDate"] = pd.to_datetime(invoice["InvoiceDate"], errors="coerce")
 
 print("=" * 70)
-print("VALIDACIONES PREVIAS AL MODELO DATA WAREHOUSE")
+print("VALIDACIONES PREVIAS AL MODELO DATA WAREHOUSE (DESDE STAGING)")
 print("=" * 70)
 
 print("\n=== VALIDACION DE TRACK ===")

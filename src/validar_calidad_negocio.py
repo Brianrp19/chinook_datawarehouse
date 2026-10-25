@@ -1,22 +1,22 @@
-from pathlib import Path
+﻿from pathlib import Path
 import numpy as np
 import pandas as pd
+from extract_staging import extract_staging_data
 
 
-def validar_calidad_negocio():
+def validar_calidad_negocio(raw_data: dict | None = None):
 
     errores = []
 
-    # Definir ruta hacia data/raw
-    base_dir = Path(__file__).resolve().parent.parent
-    raw_dir = base_dir / "data" / "raw"
+    if raw_data is None:
+        raw_data = extract_staging_data()
 
-    # Carga de datasets necesarios
-    customer = pd.read_csv(raw_dir / "Customer.csv")
-    employee = pd.read_csv(raw_dir / "Employee.csv")
-    invoice = pd.read_csv(raw_dir / "Invoice.csv")
-    invoice_line = pd.read_csv(raw_dir / "InvoiceLine.csv")
-    track = pd.read_csv(raw_dir / "Track.csv")
+    # Carga de datasets necesarios desde Staging
+    customer = raw_data.get("Customer", raw_data.get("customer")).copy()
+    employee = raw_data.get("Employee", raw_data.get("employee")).copy()
+    invoice = raw_data.get("Invoice", raw_data.get("invoice")).copy()
+    invoice_line = raw_data.get("InvoiceLine", raw_data.get("invoice_line")).copy()
+    track = raw_data.get("Track", raw_data.get("track")).copy()
 
     print("=" * 70)
     print("VALIDACIONES DE CALIDAD Y REGLAS DE NEGOCIO")
