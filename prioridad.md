@@ -1,135 +1,191 @@
-# Prioridades para completar Chinook Data Warehouse
+# Pendientes para dejar listo Chinook Data Warehouse
 
-Fecha de revisión: 2 de noviembre de 2026.
+Fecha de revisión: 3 de noviembre de 2026.
 
-Esta lista parte de la revisión del código, SQL, scripts y documentación. Los resultados publicados en el README aún deben comprobarse mediante una ejecución en el entorno configurado.
+## Actualizacion tras la primera carga completa
 
-## P0 — Preparar el entorno de validación
+Se confirmo que las cinco tablas del DW no exist?an. Se crearon a partir de `sql/create_dw.sql`, omitiendo los DROP y verificando antes la ausencia de relaciones con esos nombres. Despu?s se ejecut? `src/etl_flow.py --run-once` y finaliz? en Completed.
 
-- [x] Disponer de Python funcional y crear el entorno virtual `.venv`.
-- [ ] Instalar las dependencias de `requirements.txt` y comprobar que sus versiones se pueden instalar juntas.
-- [ ] Crear `.env` desde `.env.example` con las conexiones locales de Staging, DW y Prefect. Mantener las credenciales fuera de Git.
-- [ ] Comprobar acceso de lectura a las 11 tablas de Staging y los permisos del usuario lector.
-- [ ] Comprobar acceso a PostgreSQL DW y al servidor compartido de Prefect.
-- [ ] Confirmar si el DW contiene datos que se deban conservar antes de reconstruir el esquema. `sql/create_dw.sql` elimina las tablas existentes.
+- Ejecuci?n: `rose-kingfisher`, ID `2a71ed3b-5df9-4894-9442-b241d6faf044`.
+- Dashboard: http://127.0.0.1:4200/runs/flow-run/2a71ed3b-5df9-4894-9442-b241d6faf044
+- Staging: 11 tablas, 15.607 filas; integridad y negocio aprobados.
+- DW: dim_date 1.826; dim_employee 8; dim_customer 59; dim_track 3.503; fact_sales 2.240 filas.
+- Total fuente y DW: 2.328,60; inconsistencias matem?ticas: 0.
 
-**Criterio de cierre:** las conexiones funcionan y se puede ejecutar el modo de auditoría sin escribir en el DW.
+Quedan resueltos la inicializaci?n del esquema y la primera carga real. Siguen pendientes la repetici?n de carga, las pruebas de rollback, el lector restringido, Excel y las mejoras del c?digo. Las menciones de tablas ausentes y carga pendiente en la revisi?n siguiente describen el diagn?stico anterior a esta correcci?n.
 
-### Avance de preparación local
+## Estado real del proyecto (revisi?n anterior a la primera carga)
 
-- Python 3.12.10 instalado para el usuario y entorno `.venv` creado.
-- `.env` creado desde la plantilla y excluido de Git. Faltan las credenciales reales y confirmar la ubicación de Staging.
-- PostgreSQL 18 responde en `127.0.0.1:5432`; la autenticación y los datos existentes aún no están verificados.
-- Sin respuesta en los puertos locales `5433` (Staging) y `4201` (Prefect) durante la comprobación inicial.
-- Comprobador de conexiones de solo lectura: `.\.venv\Scripts\python.exe scripts/check_environment.py`.
-- No ejecutar `sql/create_dw.sql` hasta comprobar si hay datos que deban conservarse.
+El proyecto tiene implementados la extracción de Staging, el modelo dimensional, las transformaciones, las validaciones de integridad y negocio, la carga orquestada con Prefect y un libro de Excel. Todavía no está comprobado el funcionamiento completo de extremo a extremo.
 
-## P1 — Corregir y unificar la carga segura
+Esta revisión se basa en el código y en la ejecución de `scripts/check_environment.py`. No se ejecutó la carga, no se reconstruyeron tablas y no se verificó el libro de Excel en esta revisión. Los resultados del README son valores de referencia, no evidencia de una ejecución local completada.
 
-- [ ] Centralizar la carga para que Prefect y la ejecución directa de `src/load.py` usen la misma implementación.
-- [ ] Ejecutar las validaciones de integridad, negocio y modelo antes de cargar por cualquiera de los caminos disponibles.
-- [ ] Mantener el vaciado, la inserción y la conciliación dentro de una única transacción.
-- [ ] Conciliar contra los mismos datos extraídos al inicio de la ejecución.
-- [ ] Liberar las conexiones y los motores de base de datos al finalizar, incluso cuando haya errores.
+## 1. Lo que ya está resuelto o comprobado
 
-**Criterio de cierre:** una carga fallida conserva el estado anterior del DW; ejecutar dos veces el proceso produce los mismos datos, sin duplicados.
+- [x] Python 3.13.17 funciona en `.venv` y las dependencias están instaladas.
+- [x] Se corrigió la incompatibilidad de arranque con FastAPI fijando `fastapi==0.142.2` en `requirements.txt`; `pip check` pasó durante la corrección.
+- [x] Existe `.env`, excluido de Git.
+- [x] Staging autentica y permite consultar sus 11 tablas: los conteos individuales coinciden con el contrato, con 15.607 filas en total.
+- [x] La conexión a `chinook_dw` autentica.
+- [x] La API de Prefect configurada responde a la comprobación de salud.
+- [x] El flujo de Prefect ya contiene validaciones de integridad y negocio antes de transformar.
+- [x] La ruta de carga de Prefect agrupa TRUNCATE, inserción y conciliación en una transacción y utiliza los datos extraídos al inicio.
+- [x] El SQL define claves primarias, claves foráneas, unicidad de `invoice_line_id` y restricciones de cantidades, precios e importes.
 
-## P2 — Implementar la validación del modelo transformado
+## 2. Prioridad inmediata: conseguir una ejecución completa
 
-- [ ] Convertir `src/validar_modelo_dw.py` en funciones reutilizables, sin consultar Staging al importar el módulo.
-- [ ] Validar los cinco DataFrames transformados antes de escribir en PostgreSQL.
-- [ ] Comprobar columnas requeridas, tipos, nulos, claves únicas y relaciones entre dimensiones y hechos.
-- [ ] Comprobar longitudes de texto y rangos numéricos frente a `sql/create_dw.sql`.
-- [ ] Rechazar los errores con mensajes que identifiquen tabla, columna y regla incumplida.
-- [ ] Integrar esta validación tanto en el modo `--no-load` como en la carga completa.
+### 2.1 Corregir el acceso a Staging
 
-**Criterio de cierre:** un dato incompatible con el esquema se detecta antes de iniciar la carga.
+**Hallazgo confirmado:** `STG_USER` está configurado como `postgres`. La comprobación detecta permiso de escritura y de creación en el esquema para las 11 tablas. La conexión funciona, pero incumple el acceso de solo lectura definido en el proyecto.
 
-## P3 — Reforzar la extracción y las reglas de negocio
+- [ ] Provisionar o corregir el usuario `chinook_stg_reader` en el servidor que contiene Staging.
+- [ ] Conceder acceso de conexión, uso del esquema y SELECT sobre las fuentes; revisar permisos heredados, propiedad y privilegios elevados para impedir escritura y creación.
+- [ ] Configurar ese usuario y su contraseña real en `.env`, sin compartir ni versionar la contraseña.
+- [ ] Volver a ejecutar el comprobador: todas las fuentes deben pasar los controles de permisos y conteos.
 
-- [ ] Comprobar nombres de fuentes, columnas y conteos individuales con `contracts/staging_sources.json`.
-- [ ] Obtener los valores de control del contrato para evitar referencias duplicadas en el código.
-- [ ] Rechazar valores numéricos inválidos sin convertirlos silenciosamente en nulos, especialmente `Employee.ReportsTo`.
-- [ ] Validar que los campos enteros no tengan fracciones antes de convertirlos.
-- [ ] Rechazar importes no finitos y definir la precisión monetaria aceptada.
-- [ ] Usar `Decimal` o centavos enteros para conciliar importes de forma exacta y eliminar la tolerancia actual de un centavo.
-- [ ] Aclarar que los conteos fijos corresponden al conjunto Chinook de referencia; documentar qué cambiar si se admiten nuevos datos.
+**Aclaración:** actualmente Staging está configurado en `127.0.0.1:5432`. Esto puede funcionar con dos bases separadas en la misma instancia. Debe decidirse si la entrega requiere además dos motores independientes, como afirma el README; no cambiar a 5433 sin tener un servidor real allí.
 
-**Criterio de cierre:** cada fuente cumple el contrato y las anomalías se rechazan sin perder información durante la conversión.
+### 2.2 Inicializar o completar el esquema del DW
 
-## P4 — Completar la conciliación del DW
+**Hallazgo confirmado:** `dim_date` no existe en `public` de la base consultada. El comprobador se detiene en esa primera tabla ausente, por lo que todavía no permite afirmar si existen las otras cuatro.
 
-- [ ] Comparar los conteos de todas las dimensiones con los resultados esperados de la transformación.
-- [ ] Comprobar que cada línea de factura aparezca exactamente una vez en `fact_sales`.
-- [ ] Conciliar importes por factura y verificar la correspondencia de cliente, pista, empleado y fecha por línea.
-- [ ] Comprobar cobertura y continuidad de la dimensión fecha.
-- [ ] Verificar `playlist_count` contra las asociaciones únicas de Staging, incluyendo pistas sin listas si el contrato las admite.
-- [ ] Conservar la comprobación del total global y de `total_amount = unit_price * quantity`.
+- [ ] Inventariar las tablas y los datos actuales del DW antes de reconstruir.
+- [ ] Crear las cinco tablas y sus restricciones mediante `sql/create_dw.sql` cuando corresponda.
+- [ ] Comprobar que las cinco tablas tengan exactamente las columnas esperadas por la transformación.
 
-**Criterio de cierre:** la validación detecta diferencias por registro o dimensión aunque el conteo y el importe global coincidan.
+**Precaución concreta:** `create_dw.sql` ejecuta DROP TABLE ... CASCADE. Si hay datos o vistas que conservar, respaldarlos y planificar la reconstrucción primero.
 
-## P5 — Actualizar los scripts operativos
+### 2.3 Unificar Prefect y dejar un arranque reproducible
 
-- [ ] Corregir `scripts/run_etl.sh` para invocar una modalidad válida del flujo, como `--run-once`.
-- [ ] Evitar que `scripts/setup_local.sh` sobrescriba un `.env` existente.
-- [ ] Incorporar la configuración de Staging y Prefect al procedimiento Linux.
-- [ ] Separar la preparación del entorno de la reconstrucción destructiva del esquema.
-- [ ] Mantener instrucciones completas de ejecución en PowerShell para el entorno Windows.
-- [ ] Revisar que la ayuda de la CLI pueda consultarse sin depender de la disponibilidad del servidor Prefect.
+**Hallazgo confirmado:** `.env` sigue apuntando a `http://127.0.0.1:4200/api`, y esa API responde. Las instrucciones del proyecto indican 4201. No está comprobado que ambos puertos correspondan al mismo servidor ni al mismo historial.
 
-**Criterio de cierre:** las instrucciones y los scripts permiten preparar y ejecutar el proyecto sin pasos implícitos ni pérdida accidental de configuración.
+En esta sesión también apareció una revisión desconocida en la base global `C:\Users\migue\.prefect\prefect.db`. Se preparó una base separada en `.prefect` dentro del proyecto y sus migraciones pasaron; eso no demuestra que el servidor activo esté usándola.
 
-## P6 — Verificar Excel y la vista analítica
+- [ ] Elegir un único servidor para Staging y DW y dejar la misma URL en las terminales y `.env`.
+- [ ] Documentar el PREFECT_HOME y la conexión interna elegidos para que los siguientes arranques usen el mismo historial.
+- [ ] Verificar arranque completo, dashboard y registro de una ejecución real; crear la aplicación en memoria no sustituye comprobar su arranque.
+- [ ] Mantener la base interna y los perfiles locales fuera de Git.
 
-- [ ] Crear `vw_ventas_excel` mediante `sql/vista_excel.sql` cuando se utilice esta alternativa de consulta.
-- [ ] Comprobar las cinco consultas de Power Query del libro principal y sus conexiones al DW correcto.
-- [ ] Verificar las relaciones del modelo de Excel usando las claves `*_key`.
-- [ ] Comprobar KPIs, tablas dinámicas, filtros y gráficos.
-- [ ] Ejecutar **Datos → Actualizar todo** y contrastar los resultados con consultas SQL.
-- [ ] Confirmar que el libro se puede abrir y actualizar en el equipo de presentación con el controlador requerido.
+### 2.4 Completar la primera ejecución
 
-**Criterio de cierre:** Excel refleja los datos actuales del DW y sus indicadores coinciden con SQL, sin duplicar ventas.
+- [ ] Ejecutar `python src/etl_flow.py --no-load` y resolver cualquier error de datos o transformación.
+- [ ] Con el esquema listo, ejecutar `python src/etl_flow.py --run-once`.
+- [ ] Comprobar conteos, total monetario, restricciones y estado Completed en Prefect.
+- [ ] Repetir la carga y comprobar que no duplica registros.
 
-## P7 — Agregar pruebas y guardar evidencia
+**Cierre de esta prioridad:** acceso lector correcto, esquema completo y carga real finalizada con conciliación satisfactoria.
 
-- [ ] Agregar pruebas de rechazo de duplicados, claves huérfanas, fechas inválidas, cantidades fraccionarias e importes incorrectos.
-- [ ] Agregar pruebas de límites de texto y conversiones numéricas inválidas.
-- [ ] Probar el rollback provocando un fallo controlado en una base de pruebas.
-- [ ] Probar la repetición de la carga y la conciliación por factura o línea.
-- [ ] Ejecutar el flujo completo desde Staging hasta DW y actualizar Excel.
-- [ ] Guardar un reporte de ejecución sin credenciales, con fecha, comandos, conteos, importes y resultado de las validaciones.
+## 3. Corregir problemas del código antes del cierre técnico
 
-**Criterio de cierre:** las pruebas pasan y existe evidencia reproducible del funcionamiento completo.
+### 3.1 El validador del modelo no valida el resultado transformado
 
-## P8 — Corregir documentación y cerrar la entrega
+**Hallazgo confirmado:** `src/validar_modelo_dw.py` extrae datos al importar el módulo e imprime comprobaciones sobre fuentes. No ofrece una función que valide los cinco DataFrames de destino, ni está integrado en `etl_flow.py`.
 
-- [ ] Actualizar el README para que describa las validaciones realmente implementadas y su orden.
-- [ ] Corregir las referencias a claves foráneas: el modelo usa `date_key`, `customer_key`, `employee_key` y `track_key`.
-- [ ] Corregir la descripción de medidas: `unit_price` no es aditiva; `quantity` y `total_amount` sí lo son al grano definido.
-- [ ] Documentar que la vista de Excel se crea con un script separado.
-- [ ] Documentar los comandos de auditoría, carga completa y servicio, además de sus requisitos.
-- [ ] Actualizar o marcar como histórico `plan_reorganizacion.md` para evitar instrucciones contradictorias.
-- [ ] Confirmar el requisito académico pendiente sobre «MS» registrado en el plan y resolverlo si forma parte de la entrega.
-- [ ] Revisar que Git no incluya credenciales, archivos temporales ni registros sensibles.
+- [ ] Convertirlo en funciones sin consultas durante la importación.
+- [ ] Comprobar columnas, tipos, nulos, claves únicas, relaciones, longitudes VARCHAR y rangos NUMERIC/enteros contra el DDL.
+- [ ] Lanzar errores identificando tabla, columna y regla.
+- [ ] Ejecutarlo después de transformar, tanto en `--no-load` como antes de cargar.
 
-**Criterio de cierre:** otra persona puede preparar, ejecutar y verificar el proyecto siguiendo únicamente la documentación.
+### 3.2 Hay dos caminos de carga con garantías diferentes
 
-## Valores de referencia para la aceptación final
+**Hallazgo confirmado:** Prefect usa una transacción para vaciar, cargar y conciliar. En cambio, `src/load.py` ejecutado directamente transforma, inserta con append y valida después, sin el mismo vaciado ni una única transacción común. Tampoco ejecuta las mismas validaciones previas; una repetición puede fallar por claves ya existentes y no ofrece la misma protección frente a una carga parcial.
 
-Estos valores corresponden al conjunto Chinook documentado. Deben verificarse en una ejecución real:
+- [ ] Compartir una única función de carga transaccional entre ambos caminos, o retirar la ejecución directa como opción operativa.
+- [ ] Aplicar las mismas validaciones y conciliar contra la misma extracción.
+- [ ] Liberar el motor del camino directo y el de `task_validar` con `finally`.
+- [ ] Verificar rollback mediante un fallo controlado en una base de pruebas y comprobar que se conserva el estado previo.
 
-| Control | Resultado esperado |
+### 3.3 La extracción no aplica todo el contrato
+
+**Hallazgo confirmado:** el extractor verifica 11 tablas y 15.607 filas globales, pero no compara el conteo individual de cada fuente con el contrato. El comprobador de entorno sí lo hace. Las conversiones están duplicadas en código y `ReportsTo` usa `errors="coerce"`, que puede convertir una referencia inválida en un nulo permitido.
+
+- [ ] Validar fuentes, columnas y conteos individuales durante la extracción habitual.
+- [ ] Rechazar valores no vacíos inválidos en `ReportsTo` antes de convertirlos a nulos.
+- [ ] Comprobar que los enteros no tengan fracciones antes de convertirlos; la validación posterior de Quantity no recupera una fracción perdida en la extracción.
+- [ ] Centralizar el contrato y documentar que sus conteos fijos corresponden al conjunto de referencia.
+- [ ] Aclarar que STG_SCHEMA no cambia las consultas canónicas: el esquema lo determina el contrato.
+
+### 3.4 Falta endurecer la precisión monetaria
+
+**Hallazgo confirmado:** la extracción y transformación usan float; la validación de facturas admite diferencias de hasta un centavo, aunque su mensaje habla de coincidencia exacta. La conciliación global del DW usa Decimal y compara exactamente, pero eso no elimina los redondeos anteriores.
+
+- [ ] Usar Decimal o centavos enteros para el cálculo monetario de extremo a extremo.
+- [ ] Definir y validar la precisión admitida antes de redondear.
+- [ ] Rechazar precios y totales no finitos y valores numéricos inválidos.
+- [ ] Alinear las reglas y los mensajes de validación con la precisión elegida.
+
+### 3.5 La conciliación del DW es insuficiente para algunas diferencias
+
+**Hallazgo confirmado:** `verify_dw_data` exige conteo de ventas, total global y consistencia de precio por cantidad. Los conteos de dimensiones y el número de pistas con playlists se imprimen, pero no se comparan con los resultados transformados. Las restricciones SQL ya cubren unicidad y referencias, pero no demuestran que cada venta tenga la dimensión correcta.
+
+- [ ] Comparar todas las dimensiones con la transformación esperada.
+- [ ] Conciliar por factura y por `invoice_line_id`, incluyendo cliente, pista, empleado y fecha.
+- [ ] Verificar continuidad del calendario y `playlist_count` contra las asociaciones de origen.
+- [ ] Corregir el caso `source_data` suministrado sin InvoiceLine/invoice_line: actualmente puede dejar sin definir los valores esperados; debe producir un error claro.
+
+## 4. Verificar Excel y los resultados de negocio
+
+**Estado:** existen `ecxel/Chinook_Analisis_DataWarehouse.xlsx` y `Book1.xlsx`. Su existencia no comprueba conexiones, relaciones ni actualización. El libro no se inspeccionó en esta revisión.
+
+- [ ] Elegir y documentar el libro final de entrega.
+- [ ] Confirmar que sus cinco consultas de Power Query leen el DW correcto con credenciales locales válidas.
+- [ ] Revisar relaciones con las claves `date_key`, `customer_key`, `employee_key` y `track_key`.
+- [ ] Ejecutar Datos → Actualizar todo después de cargar el DW.
+- [ ] Comparar ventas, cantidades y filtros por fecha, país, género y empleado contra SQL.
+- [ ] Comprobar tablas dinámicas, gráficos y KPIs en el equipo de presentación.
+- [ ] Si se usa `vw_ventas_excel`, crearla con `sql/vista_excel.sql`; no está incluida en `create_dw.sql`.
+
+**Cierre:** el reporte se actualiza desde PostgreSQL y sus resultados coinciden con SQL sin duplicar ventas.
+
+## 5. Documentación y entrega
+
+- [ ] Corregir README y ENTORNO_LOCAL: actualmente describen versiones, puertos y estados que no coinciden con el entorno revisado.
+- [ ] Documentar si se usan dos bases en PostgreSQL 18 o dos motores separados; confirmar que la arquitectura cumple el requisito académico.
+- [ ] Corregir el README: las relaciones del DW usan `*_key`, no los identificadores operacionales `*_id`.
+- [ ] Aclarar que `unit_price` no es una medida aditiva; quantity y total_amount sí lo son al grano de línea.
+- [ ] Ajustar las afirmaciones sobre validación del modelo, conciliación exacta y creación de la vista a lo realmente implementado.
+- [ ] Documentar preparación y ejecución completa en PowerShell, incluyendo recuperación de los problemas de dependencias y almacenamiento de Prefect encontrados.
+- [ ] Permitir consultar `--help` sin comprobar antes la disponibilidad de Prefect.
+- [ ] Resolver si Linux forma parte de la entrega: los scripts run_etl.sh, setup_local.sh y stop_local_postgres.sh aparecen eliminados en el árbol actual; no tiene sentido dejar tareas de reparación de archivos ausentes sin decidir su alcance.
+- [ ] Marcar planes anteriores como históricos o actualizarlos para evitar instrucciones contradictorias.
+- [ ] Confirmar con el profesor qué significa el requisito «MS» pendiente en plan_reorganizacion.md y si exige trabajo adicional.
+- [ ] Revisar cambios de Git y excluir credenciales, bases internas, archivos temporales y logs sensibles.
+- [ ] Guardar evidencia sin secretos: fecha, versión, comandos, conteos, conciliación, ejecución Completed y actualización del reporte.
+
+## 6. Pruebas que faltan para respaldar la entrega
+
+No se encontraron archivos de pruebas automatizadas en la búsqueda del repositorio.
+
+- [ ] Probar rechazo de claves duplicadas/huérfanas, fechas inválidas, fracciones en enteros, importes inválidos y textos fuera del límite SQL.
+- [ ] Probar que una referencia ReportsTo inválida no se pierda como nulo.
+- [ ] Probar diferencias por línea/factura aunque el total global coincida.
+- [ ] Probar carga repetida y rollback en un entorno de pruebas.
+- [ ] Ejecutar el recorrido real Staging → DW → Excel y conservar los resultados.
+
+## 7. Orden recomendado y condición de proyecto listo
+
+1. Corregir el lector de Staging y definir la arquitectura local.
+2. Revisar e inicializar el esquema del DW.
+3. Unificar el servidor y la configuración de Prefect.
+4. Completar auditoría y una carga real.
+5. Corregir validador del modelo, carga directa, conversiones y conciliación.
+6. Repetir las verificaciones con pruebas de fallo y repetición.
+7. Actualizar Excel y contrastarlo con SQL.
+8. Cerrar documentación, requisitos académicos y evidencia de entrega.
+
+Para una demostración funcional hacen falta, como mínimo, conexiones correctas, esquema, auditoría, carga y Excel actualizado. Para dar por terminada la entrega técnica también deben cerrarse las garantías de validación, permisos, transacciones y reproducibilidad descritas arriba.
+
+| Control de aceptación del conjunto de referencia | Resultado esperado |
 |---|---:|
-| Fuentes de Staging | 11 tablas |
-| Filas totales de Staging | 15.607 |
-| `dim_date` | 1.826 filas, del 2009-01-01 al 2013-12-31 |
-| `dim_employee` | 8 filas |
-| `dim_customer` | 59 filas |
-| `dim_track` | 3.503 filas |
-| `fact_sales` | 2.240 filas |
-| Total de ventas | 2.328,60 |
-| Diferencia monetaria con la fuente | 0,00 |
-| Duplicados y claves huérfanas | 0 |
+| Fuentes Staging | 11 tablas / 15.607 filas |
+| dim_date | 1.826 filas: 2009-01-01 a 2013-12-31 |
+| dim_employee | 8 filas |
+| dim_customer | 59 filas |
+| dim_track | 3.503 filas |
+| fact_sales | 2.240 filas |
+| Ventas totales | 2.328,60 |
+| Diferencia monetaria contra la fuente | 0,00 |
+| Claves duplicadas o huérfanas | 0 |
 | Inconsistencias matemáticas | 0 |
 
-**Proyecto listo:** todas las prioridades cerradas, pruebas satisfactorias, carga repetible y atómica, Excel actualizado y documentación consistente con la implementación.
+Estos resultados del DW siguen pendientes de comprobar en una carga real. El proyecto queda listo cuando se demuestra el recorrido completo, la carga es repetible y atómica, el lector está restringido, Excel coincide con SQL y otra persona puede reproducir el procedimiento con la documentación.
