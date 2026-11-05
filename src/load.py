@@ -30,7 +30,7 @@ def get_db_config():
 
 
 def load_data(engine, data_dict: dict):
-    """Carga los DataFrames transformados respetando estrictamente el orden referencial."""
+    # Carga los DataFrames transformados en PostgreSQL, respetando el orden de dependencia.
     print("\n--- INICIANDO CARGA (L) EN POSTGRESQL ---")
 
     # Orden estricto: dimensiones independientes primero, tabla de hechos al final
@@ -58,18 +58,67 @@ def load_data(engine, data_dict: dict):
     print("\n¡Carga completa finalizada con éxito!")
 
 
+def comparar_tabla_dw(conn, tabla, esperado, clave):
+    # Compara el conteo de filas en la tabla del Data Warehouse con el esperado.
+    columnas = list(esperado.columns)
+    seleccion = ", ".join(f'"{col}"' for col in columnas)
+
+    actual = pd.read_sql_query(f'select {seleccion} from public."{tabla}"', conn, coerce_float=False)
+
+    for nombre, df in [("Staging transformado", esperado), ("DW", actual)]:
+        if df[clave].isna().any():
+            raise ValueError(f"Valores nulos encontrados en la columna clave '{clave}' de {nombre}.")
+        if df[clave].duplicated().any():
+            raise ValueError(f"Valores duplicados encontrados en la columna clave '{clave}' de {nombre}.")
+
+    esperado = esperado.sort_values(clave).reset_index(drop=True)
+    actual = actual.sort_values(clave).reset_index(drop=True)
+
+
+    columnas_decimales ={"unit_price", "total_amount","duration_seconds", "duration_minutes"}
+
+    columnas_fecha = {"full_date", "birth_date", "hire_date"}
+
+    for columna in columnas:
+        for df in (esperado, actual):
+            if columna in columnas_decimales:
+                df[columna] = df[columna].map(
+                    lambda valor: (None if pd.isna(valor) else Decimal(str(valor)))
+                ) 
+            elif columna in columnas_fecha:
+                df[columna] = pd.to_datetime(
+                    df[columna], errors="raise"
+                ).dt.date
+        try:
+            pd.testing.assert_series_equal(
+                esperado[columna], actual[columna], check_dtype=False, check_exact=True
+            )
+        except AssertionError as error:    
+            raise ValueError(
+                f"{tabla}: Los datos en la columna '{columna}' no coinciden entre el Staging transformado y el Data Warehouse. \n {error}"
+            ) from error
+
+        print(f"[OK] {tabla}: La columna '{columna}' coincide entre el Staging transformado y el Data Warehouse.")
+    
+
+
 def verify_dw_data(engine, source_data: dict | None = None):
-    """Ejecuta consultas de control de calidad y cuadratura directamente en el Data Warehouse."""
+    # Verifica la consistencia del Data Warehouse comparando con los datos fuente.
+    if source_data is None:
+        raise ValueError(
+            "No se proporcionaron datos de referencia para la cuadratura. "
+            "Se requiere un diccionario con los datos originales extraídos desde PostgreSQL Staging."
+        )
 
-    # Cuadratura frente a los datos originales extraídos desde PostgreSQL Staging
-    if source_data is not None:
-        source_lines = source_data.get("InvoiceLine", source_data.get("invoice_line"))
-    else:
-        # Valores de referencia oficiales del contrato Chinook cuando no se suministran datos en memoria
-        expected_count = 2240
-        expected_total = Decimal("2328.60")
-        source_lines = None
+    source_lines = source_data.get("invoice_line")
+    if source_lines is None:
+        source_lines = source_data.get("InvoiceLine")
 
+    if source_lines is None:
+        raise ValueError(
+            "No se encontraron datos de referencia para 'InvoiceLine' o 'invoice_line' en el diccionario proporcionado."
+        )
+    
     if source_lines is not None:
         expected_count = len(source_lines)
         expected_total = sum(
@@ -92,6 +141,21 @@ def verify_dw_data(engine, source_data: dict | None = None):
     )
 
     with contexto as conn:
+
+        esperado = transformar_datos(source_data)
+
+        claves = {
+            "dim_date": "date_key",
+            "dim_employee": "employee_key",
+            "dim_customer": "customer_key",
+            "dim_track": "track_key",
+            "fact_sales": "invoice_line_id",
+        }
+
+        for tabla, clave in claves.items():
+            # Compara cada tabla del Data Warehouse con su correspondiente DataFrame transformado.
+            comparar_tabla_dw(conn, tabla, esperado[tabla], clave)
+
         # 1. Conteos de filas por tabla
         tablas = ["dim_date", "dim_employee", "dim_customer", "dim_track", "fact_sales"]
         for t in tablas:
