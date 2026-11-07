@@ -305,13 +305,13 @@ Es fundamental comprender esta distinción conceptual para evitar confusiones en
 ## Paso 8: Explotación y Consulta en Microsoft Excel
 
 * **Proyecto:** `chinook_datawarehouse`
-* **Archivo Principal:** [`ecxel/Chinook_Analisis_DataWarehouse.xlsx`](ecxel/Chinook_Analisis_DataWarehouse.xlsx)
-* *(Nota: El archivo `ecxel/Book1.xlsx` se conserva exclusivamente como respaldo histórico original).*
+* **Archivo Principal:** [`excel/Chinook_Analisis_DataWarehouse.xlsx`](../excel/Chinook_Analisis_DataWarehouse.xlsx)
+* *(Nota: El archivo `docs/historico/Book1.xlsx` se conserva exclusivamente como respaldo histórico original).*
 
 ### 1. Abrir el Libro de Análisis
 Desde la raíz de `chinook_datawarehouse` en PowerShell:
 ```powershell
-Start-Process ".\ecxel\Chinook_Analisis_DataWarehouse.xlsx"
+Start-Process ".\excel\Chinook_Analisis_DataWarehouse.xlsx"
 ```
 
 ### 2. Arquitectura de Conexión en Excel
@@ -488,6 +488,6 @@ Start-Process "http://127.0.0.1:4201"
 
 # 2. Abrir Excel Analítico:
 cd "C:\Users\brian\OneDrive\Documentos\Base de datos\chinook_datawarehouse"
-Start-Process ".\ecxel\Chinook_Analisis_DataWarehouse.xlsx"
+Start-Process ".\excel\Chinook_Analisis_DataWarehouse.xlsx"
 ```
 *(En Excel: pulsar **Datos → Actualizar todo**).*

@@ -35,7 +35,7 @@ El sistema global Chinook está organizado de forma desacoplada en dos proyectos
 +--------------------------------------------------------------+
 |  REPOSITORIO 2: chinook_datawarehouse (Brian y Miguel)       |
 |  - Ruta: C:\...\Base de datos\chinook_datawarehouse          |
-|  - Extracción: src/extract_staging.py (NO lee CSVs directos) |
+|  - Extracción: src/etl/extract_staging.py (NO lee CSVs)      |
 |  - Pipeline ETL en Python 3 + Prefect 3                      |
 |  - Validaciones de negocio, integridad referencial y tipos   |
 |  - Modelo dimensional en estrella (4 dimensiones + hechos)   |
@@ -47,7 +47,7 @@ El sistema global Chinook está organizado de forma desacoplada en dos proyectos
             v
 +--------------------------------------------------------------+
 |  CAPA ANALÍTICA Y REPORTES: Microsoft Excel                  |
-|  - Archivo: ecxel/Chinook_Analisis_DataWarehouse.xlsx        |
+|  - Archivo: excel/Chinook_Analisis_DataWarehouse.xlsx        |
 |  - Modelo tabular, KPIs, Tablas Dinámicas y Gráficos         |
 +--------------------------------------------------------------+
 ```
@@ -62,7 +62,7 @@ El sistema global Chinook está organizado de forma desacoplada en dos proyectos
 
 ## 2. Contrato de Fuentes y Extracción desde Staging
 
-La extracción de datos es ejecutada por el módulo [`src/extract_staging.py`](src/extract_staging.py), el cual implementa las siguientes garantías técnicas:
+La extracción de datos es ejecutada por el módulo [`src/etl/extract_staging.py`](src/etl/extract_staging.py), el cual implementa las siguientes garantías técnicas:
 
 * **Base de Datos Origen:** PostgreSQL 17 (`127.0.0.1:5433`, base `chinook_staging`).
 * **Credenciales:** Usuario `chinook_stg_reader` configurado en el archivo `.env` mediante variables `STG_*`.
@@ -131,9 +131,9 @@ La extracción de datos es ejecutada por el módulo [`src/extract_staging.py`](s
 
 1. **`fact_sales` (Tabla de Hechos — 2.240 registros, $2.328,60):**
    - Grano transaccional atómico al nivel de línea de venta.
-   - Claves foráneas hacia las cuatro dimensiones: `date_id`, `customer_id`, `employee_id`, `track_id`.
+   - Claves foráneas sustitutas hacia las cuatro dimensiones: `date_key`, `customer_key`, `employee_key`, `track_key`.
    - Claves degeneradas operacionales: `invoice_id`, `invoice_line_id`.
-   - Métricas aditivas: `unit_price`, `quantity`, `total_amount`.
+   - Métricas: `quantity` y `total_amount` (aditivas al grano de línea), junto con `unit_price` (precio unitario de venta).
    - Consistencia matemática garantizada: `total_amount = unit_price * quantity`.
 
 2. **`dim_date` (1.826 registros):**
@@ -155,28 +155,37 @@ La extracción de datos es ejecutada por el módulo [`src/extract_staging.py`](s
 
 ---
 
-## 4. Pipeline ETL y Calidad de Datos
+## 4. Pipeline ETL, Validaciones y Pruebas Unitarias
 
-El pipeline se ejecuta de forma modular a través de scripts especializados en `src/`:
+El pipeline se organiza de forma modular en `src/etl/` y `src/validations/`, orquestado por [`src/etl_flow.py`](src/etl_flow.py):
 
 ```text
-[extract_staging.py] -> [validar_integridad.py] -> [validar_calidad_negocio.py] -> [transform.py] -> [load.py] -> [validar_modelo_dw.py]
+[extract_staging.py] -> [validar_integridad.py] -> [validar_calidad_negocio.py] -> [transform.py] -> [validar_modelo_dw.py] -> [load.py]
 ```
 
 ### Reglas de Calidad y Validación
-- **Validación de Integridad Referencial ([`src/validar_integridad.py`](src/validar_integridad.py)):**
-  Verifica que no existan claves foráneas huérfanas en los datos de entrada (`CustomerId` en facturas, `SupportRepId` en clientes, `ReportsTo` en empleados, `TrackId` en líneas de venta).
-- **Validación de Reglas de Negocio ([`src/validar_calidad_negocio.py`](src/validar_calidad_negocio.py)):**
-  Comprueba que los precios unitarios sean estrictamente mayores a cero, cantidades positivas y que la suma de líneas coincida exactamente con los totales de cabecera de las facturas.
-- **Validación del Esquema DW ([`src/validar_modelo_dw.py`](src/validar_modelo_dw.py)):**
-  Audita los tipos de datos generados en memoria, límites de caracteres `VARCHAR` y ausencia total de nulos en claves primarias.
-- **Carga Transaccional y Conciliación ([`src/load.py`](src/load.py)):**
+- **Validación de Integridad Referencial ([`src/validations/validar_integridad.py`](src/validations/validar_integridad.py)):**
+  Verifica que no existan claves foráneas huérfanas ni claves duplicadas/nulas en los datos extraídos de Staging (`CustomerId` en facturas, `SupportRepId` en clientes, `ReportsTo` en empleados, `TrackId` en líneas de venta).
+- **Validación de Reglas de Negocio ([`src/validations/validar_calidad_negocio.py`](src/validations/validar_calidad_negocio.py)):**
+  Comprueba que los precios unitarios sean estrictamente mayores a cero, cantidades enteras positivas, coherencia temporal de empleados y coincidencia entre la suma de líneas y los totales de cabecera de factura.
+- **Validación del Esquema DW ([`src/validations/validar_modelo_dw.py`](src/validations/validar_modelo_dw.py)):**
+  Audita en memoria antes de la carga las claves primarias, tipos enteros de 32/64 bits, límites `VARCHAR` del DDL y referencias entre `fact_sales` y las cuatro dimensiones.
+- **Carga Transaccional y Conciliación ([`src/etl/load.py`](src/etl/load.py)):**
   - Ejecuta un vaciado previo idempotente:
     ```sql
     TRUNCATE fact_sales, dim_track, dim_customer, dim_employee, dim_date CASCADE;
     ```
   - Carga las dimensiones independientes en primer orden y la tabla de hechos al final.
-  - Realiza la conciliación matemática obligatoria (`verify_dw_data`) dentro de la misma transacción antes de confirmar el `COMMIT`.
+  - Compara columna por columna cada tabla cargada contra la transformación esperada y realiza la conciliación matemática (`verify_dw_data`) dentro de la misma transacción antes de confirmar el `COMMIT`.
+
+### Ejecución de Pruebas Unitarias y Diagnóstico
+```powershell
+# Suite de pruebas unitarias en memoria (transformaciones y rechazo de datos inválidos)
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+
+# Verificación de entorno, puertos, contrato de Staging y estado de Prefect
+.\.venv\Scripts\python.exe scripts/check_environment.py
+```
 
 ---
 
@@ -187,23 +196,38 @@ chinook_datawarehouse/
 ├── contracts/
 │   ├── README.md                          # Documentación del contrato de extracción
 │   └── staging_sources.json               # Especificación formal JSON del contrato SQL
-├── ecxel/
-│   ├── Chinook_Analisis_DataWarehouse.xlsx  # Libro analítico definitivo (Power Query conectado a PG18)
-│   └── Book1.xlsx                         # Versión histórica original preservada
+├── docs/
+│   ├── README.md                          # Índice de documentación operativa
+│   ├── comandos_prefect.md                # Guía operativa paso a paso para la exposición
+│   ├── entorno_local.md                   # Preparación y diagnóstico del entorno local
+│   └── historico/                         # Bitácoras, planes previos y respaldos del equipo
+├── drivers/
+│   └── Npgsql-4.0.17.msi                  # Instalador del conector PostgreSQL para Excel
+├── excel/
+│   └── Chinook_Analisis_DataWarehouse.xlsx  # Libro analítico definitivo conectado a PG18
+├── scripts/
+│   ├── check_environment.py               # Verificador de conexiones, permisos y contrato
+│   └── explorar_datos.py                  # Exploración y perfilado de las 11 tablas Staging
 ├── sql/
-│   └── create_dw.sql                      # DDL de PostgreSQL 18: esquemas, tablas, índices y PK/FK
+│   ├── create_dw.sql                      # DDL de PostgreSQL 18: tablas, índices y PK/FK
+│   ├── vista_excel.sql                    # Vista desnormalizada vw_ventas_excel
+│   └── consultas.sql                      # Consultas analíticas multidimensionales OLAP
 ├── src/
-│   ├── extract_staging.py                 # Extracción segura de PostgreSQL 17 (REPEATABLE READ)
-│   ├── transform.py                       # Transformación dimensional y modelado estrella en memoria
-│   ├── validar_integridad.py              # Validación de relaciones y claves foráneas
-│   ├── validar_calidad_negocio.py         # Reglas de negocio (precios, cantidades, totales)
-│   ├── validar_modelo_dw.py               # Validación de esquema, tipos y restricciones DW
-│   ├── load.py                            # Carga atómica a PostgreSQL 18 y conciliación
-│   └── etl_flow.py                        # Orquestador del flujo con Prefect 3
+│   ├── etl_flow.py                        # Orquestador principal del flujo con Prefect 3
+│   ├── etl/
+│   │   ├── extract_staging.py             # Extracción segura de PostgreSQL 17 (REPEATABLE READ)
+│   │   ├── transform.py                   # Transformación dimensional al Star Schema
+│   │   └── load.py                        # Carga atómica a PostgreSQL 18 y conciliación
+│   └── validations/
+│       ├── validar_integridad.py          # Validación de claves y relaciones de Staging
+│       ├── validar_calidad_negocio.py     # Reglas de negocio (precios, cantidades, totales)
+│       └── validar_modelo_dw.py           # Validación de tipos, rangos y longitudes del DW
+├── tests/
+│   ├── helpers.py                         # Fixtures sintéticos de referencia para pruebas
+│   ├── test_transform.py                  # Pruebas unitarias del modelo dimensional
+│   └── test_validations.py                # Pruebas unitarias de controles y casos inválidos
 ├── .env.example                           # Plantilla pública de variables de entorno
-├── .gitignore                             # Exclusión estricta de entornos (.venv), secretos (.env) y temporales
-├── comandosPrefect.md                     # Guía operativa paso a paso para la exposición
-├── plan_reorganizacion.md                 # Arquitectura de desacoplamiento Staging / DW
+├── .gitignore                             # Exclusión de entornos (.venv), secretos (.env) y temporales
 ├── requirements.txt                       # Dependencias de Python fijadas
 └── README.md                              # Documentación técnica principal
 ```
@@ -333,9 +357,9 @@ La visualización y explotación analítica de negocio se presenta mediante **Mi
 
 ### Archivo Principal de Presentación
 ```powershell
-Start-Process ".\ecxel\Chinook_Analisis_DataWarehouse.xlsx"
+Start-Process ".\excel\Chinook_Analisis_DataWarehouse.xlsx"
 ```
-*(El archivo `ecxel/Book1.xlsx` se conserva exclusivamente como respaldo histórico original).*
+*(El archivo `docs/historico/Book1.xlsx` se conserva exclusivamente como respaldo histórico original).*
 
 ### Arquitectura de Conexión en Excel
 - **Motor:** **Power Query** conectado directamente a PostgreSQL 18 (`127.0.0.1:5432`, base de datos `chinook_dw`).
@@ -346,4 +370,4 @@ Start-Process ".\ecxel\Chinook_Analisis_DataWarehouse.xlsx"
   4. `dim_track` (3.503 registros)
   5. `fact_sales` (2.240 registros, $2.328,60)
 - **Actualización en Tiempo Real:** En Excel, pulsar la pestaña **Datos → Actualizar todo** (*Refresh All*). Excel consulta en vivo la base de datos PostgreSQL 18; no requiere volver a ejecutar los scripts de Python para refrescar sus tablas dinámicas y gráficos.
-- **Vista Analítica Complementaria (`vw_ventas_excel`):** Incluida en `sql/create_dw.sql`, ofrece una alternativa desnormalizada y aplanada para consultas ad-hoc directas.
+- **Vista Analítica Complementaria (`vw_ventas_excel`):** Definida en [`sql/vista_excel.sql`](sql/vista_excel.sql), ofrece una alternativa desnormalizada y aplanada para consultas ad-hoc directas.

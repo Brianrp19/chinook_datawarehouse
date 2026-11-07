@@ -25,7 +25,7 @@ Para reinstalar las dependencias desde el índice oficial:
 
 1. Completar `PGPASSWORD` y `STG_PASSWORD` directamente en `.env`, sin compartirlas en el chat ni versionarlas.
 2. Confirmar el host y puerto de Staging. No hubo respuesta en `127.0.0.1:5433` durante la comprobación inicial.
-3. Iniciar o indicar la URL del servidor compartido de Prefect. No hubo respuesta en `http://127.0.0.1:4201/api/health` durante la comprobación inicial. Seguir `comandosPrefect.md` para conservar la configuración del servidor compartido.
+3. Iniciar o indicar la URL del servidor compartido de Prefect. No hubo respuesta en `http://127.0.0.1:4201/api/health` durante la comprobación inicial. Seguir `docs/comandos_prefect.md` para conservar la configuración del servidor compartido.
 4. Ejecutar el comprobador y revisar los conteos existentes del DW antes de considerar una reconstrucción. No se ha ejecutado `sql/create_dw.sql`.
 
 El comprobador usa transacciones de solo lectura, verifica las fuentes y los conteos del contrato, revisa permisos básicos del lector y consulta la salud de Prefect. No modifica tablas ni permisos; tampoco sustituye una auditoría completa de seguridad. Si hay comprobaciones pendientes o fallidas, termina con código 1.
