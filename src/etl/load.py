@@ -4,22 +4,21 @@ import os
 from pathlib import Path
 import sys
 
-SRC_DIR = Path(__file__).resolve().parents[1]
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Connection
-from etl.extract_staging import extract_staging_data
-from etl.transform import transformar_datos
-from validations.validar_integridad import validar_integridad
-from validations.validar_calidad_negocio import validar_calidad_negocio
-from validations.validar_modelo_dw import validar_modelo_dw
+from src.etl.extract_staging import extract_staging_data
+from src.etl.transform import transformar_datos
+from src.validations.validar_integridad import validar_integridad
+from src.validations.validar_calidad_negocio import validar_calidad_negocio
+from src.validations.validar_modelo_dw import validar_modelo_dw
 
 
-PROJECT_DIR = SRC_DIR.parent
 load_dotenv(PROJECT_DIR / ".env")
 
 

@@ -1,16 +1,15 @@
 import sys
 from pathlib import Path
 
-# Asegurar que la carpeta src esté en sys.path para importaciones locales
-SRC_DIR = Path(__file__).resolve().parent
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+# Asegurar que la raíz del proyecto esté en sys.path para importaciones del paquete src
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
 import os
 import urllib.request
 from dotenv import load_dotenv
 
-PROJECT_DIR = SRC_DIR.parent
 load_dotenv(PROJECT_DIR / ".env")
 
 # Comprobación estricta de la API de Prefect para evitar fallback silencioso en demostraciones
@@ -35,12 +34,12 @@ import argparse
 from prefect import flow, task
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
-from etl.extract_staging import extract_staging_data
-from etl.transform import transformar_datos
-from etl.load import get_db_config, load_data, verify_dw_data
-from validations.validar_integridad import validar_integridad
-from validations.validar_calidad_negocio import validar_calidad_negocio
-from validations.validar_modelo_dw import validar_modelo_dw
+from src.etl.extract_staging import extract_staging_data
+from src.etl.transform import transformar_datos
+from src.etl.load import get_db_config, load_data, verify_dw_data
+from src.validations.validar_integridad import validar_integridad
+from src.validations.validar_calidad_negocio import validar_calidad_negocio
+from src.validations.validar_modelo_dw import validar_modelo_dw
 
 
 def get_engine():
