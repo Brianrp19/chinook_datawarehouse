@@ -34,12 +34,12 @@ import argparse
 from prefect import flow, task
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
-from extract_staging import extract_staging_data
-from transform import transformar_datos
-from load import get_db_config, load_data, verify_dw_data
-from validar_integridad import validar_integridad
-from validar_calidad_negocio import validar_calidad_negocio
-from validar_modelo_dw import validar_modelo_dw
+from etl.extract_staging import extract_staging_data
+from etl.transform import transformar_datos
+from etl.load import get_db_config, load_data, verify_dw_data
+from validations.validar_integridad import validar_integridad
+from validations.validar_calidad_negocio import validar_calidad_negocio
+from validations.validar_modelo_dw import validar_modelo_dw
 
 
 def get_engine():

@@ -1,6 +1,12 @@
-﻿from pathlib import Path
+import sys
+from pathlib import Path
+
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 import pandas as pd
-from extract_staging import extract_staging_data
+from etl.extract_staging import extract_staging_data
 
 SOURCE_NAME_MAP = {
     "Album": "album",

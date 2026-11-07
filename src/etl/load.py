@@ -1,15 +1,21 @@
+from contextlib import nullcontext
 from decimal import Decimal
 import os
 from pathlib import Path
+import sys
+
+SRC_DIR = Path(__file__).resolve().parents[1]
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Connection
-from transform import transformar_datos
-from contextlib import nullcontext
+from etl.transform import transformar_datos
 
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = SRC_DIR.parent
 load_dotenv(PROJECT_DIR / ".env")
 
 

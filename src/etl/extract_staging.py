@@ -1,4 +1,4 @@
-﻿"""Módulo de extracción desde PostgreSQL Staging (chinook_staging).
+"""Módulo de extracción desde PostgreSQL Staging (chinook_staging).
 
 Conecta exclusivamente con el usuario lector acordado (chinook_stg_reader),
 utilizando una única conexión y transacción REPEATABLE READ READ ONLY,
@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_DIR / ".env")
 
 SOURCE_KEY_MAP = {
