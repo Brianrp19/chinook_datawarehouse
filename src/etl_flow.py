@@ -39,6 +39,7 @@ from transform import transformar_datos
 from load import get_db_config, load_data, verify_dw_data
 from validar_integridad import validar_integridad
 from validar_calidad_negocio import validar_calidad_negocio
+from validar_modelo_dw import validar_modelo_dw
 
 
 def get_engine():
@@ -80,6 +81,10 @@ def task_transformar(raw_data: dict) -> dict:
     """Aplica las reglas de transformación dimensional sobre los datos extraídos."""
     print("Iniciando tarea de transformación de datos...")
     data_dict = transformar_datos(raw_data)
+    validar_modelo_dw(data_dict)
+    print("------------------------------------------------")
+    print("Validacion del modelo DW completada sin errores.")
+    print("------------------------------------------------")
     print("Transformación finalizada exitosamente.")
     return data_dict
 
