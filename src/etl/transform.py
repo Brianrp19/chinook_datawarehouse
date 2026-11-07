@@ -9,15 +9,6 @@ import pandas as pd
 from etl.extract_staging import extract_staging_data
 
 
-def get_raw_data_dir() -> Path:
-    return Path(__file__).resolve().parent.parent / "data" / "raw"
-
-
-def extract_raw_data():
-    """Extrae todos los datasets requeridos desde PostgreSQL Staging."""
-    return extract_staging_data()
-
-
 def build_dim_date(invoice_df: pd.DataFrame) -> pd.DataFrame:
     """Genera la dimensión fecha cubriendo todo el rango temporal del negocio."""
     invoice_dates = pd.to_datetime(invoice_df["InvoiceDate"])
@@ -282,19 +273,19 @@ def build_fact_sales(
     return sales[column_order]
 
 
-def transformar_datos(raw_data: dict | None = None):
+def transformar_datos(staging_data: dict | None = None):
     """Ejecuta el pipeline completo de transformación (T) y retorna los DataFrames listos."""
     print("Iniciando Transformacion (T) del Data Warehouse...")
-    raw = raw_data if raw_data is not None else extract_staging_data()
+    stg = staging_data if staging_data is not None else extract_staging_data()
 
-    dim_date = build_dim_date(raw["invoice"])
-    dim_employee = build_dim_employee(raw["employee"])
-    dim_customer = build_dim_customer(raw["customer"])
+    dim_date = build_dim_date(stg["invoice"])
+    dim_employee = build_dim_employee(stg["employee"])
+    dim_customer = build_dim_customer(stg["customer"])
     dim_track = build_dim_track(
-        raw["track"], raw["album"], raw["artist"], raw["genre"], raw["media_type"], raw["playlist_track"]
+        stg["track"], stg["album"], stg["artist"], stg["genre"], stg["media_type"], stg["playlist_track"]
     )
     fact_sales = build_fact_sales(
-        raw["invoice_line"], raw["invoice"], dim_customer, dim_employee, dim_track
+        stg["invoice_line"], stg["invoice"], dim_customer, dim_employee, dim_track
     )
 
     print("\n--- RESUMEN DE TRANSFORMACION ---")

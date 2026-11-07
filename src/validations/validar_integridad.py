@@ -23,7 +23,7 @@ SOURCE_NAME_MAP = {
 }
 
 
-def validar_integridad(raw_data: dict | None = None):
+def validar_integridad(staging_data: dict | None = None):
     claves = {
         "Album": ["AlbumId"],
         "Artist": ["ArtistId"],
@@ -38,13 +38,13 @@ def validar_integridad(raw_data: dict | None = None):
         "Track": ["TrackId"],
     }
 
-    if raw_data is None:
-        raw_data = extract_staging_data()
+    if staging_data is None:
+        staging_data = extract_staging_data()
 
     datos = {}
     for nombre in claves.keys():
         key = SOURCE_NAME_MAP.get(nombre, nombre.lower())
-        datos[nombre] = raw_data.get(nombre, raw_data.get(key))
+        datos[nombre] = staging_data.get(nombre, staging_data.get(key))
         if datos[nombre] is None:
             raise KeyError(f"No se encontró la tabla {nombre} en los datos extraídos.")
 

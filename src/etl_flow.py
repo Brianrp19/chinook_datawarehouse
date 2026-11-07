@@ -15,11 +15,12 @@ load_dotenv(PROJECT_DIR / ".env")
 
 # Comprobación estricta de la API de Prefect para evitar fallback silencioso en demostraciones
 _standalone_mode = "--standalone" in sys.argv
+_help_mode = "-h" in sys.argv or "--help" in sys.argv
 _api_url = os.environ.get("PREFECT_API_URL")
 
 if _standalone_mode:
     os.environ["PREFECT_API_URL"] = ""
-elif _api_url:
+elif _api_url and not _help_mode:
     try:
         urllib.request.urlopen(_api_url.rstrip("/") + "/health", timeout=1.0)
     except Exception as _e:
@@ -60,37 +61,37 @@ def get_engine():
 def task_extraer_staging() -> dict:
     """Extrae las 11 fuentes desde PostgreSQL Staging en una sola transacción REPEATABLE READ."""
     print("Iniciando tarea de extracción desde PostgreSQL Staging...")
-    raw_data = extract_staging_data()
-    total_filas = sum(len(df) for df in raw_data.values())
+    staging_data = extract_staging_data()
+    total_filas = sum(len(df) for df in staging_data.values())
     print(f"Extracción completada: 11 tablas y {total_filas} registros.")
-    return raw_data
+    return staging_data
 
 
 @task(name="Validar Integridad", log_prints=True)
-def task_validar_integridad(raw_data: dict) -> None:
-    validar_integridad(raw_data)
+def task_validar_integridad(staging_data: dict) -> None:
+    validar_integridad(staging_data)
 
 
 @task(name="Validar Calidad y Reglas de Negocio", log_prints=True)
-def task_validar_calidad_negocio(raw_data: dict) -> None:
-    validar_calidad_negocio(raw_data)
+def task_validar_calidad_negocio(staging_data: dict) -> None:
+    validar_calidad_negocio(staging_data)
 
 
 @task(name="Transformar Datos", log_prints=True)
-def task_transformar(raw_data: dict) -> dict:
-    """Aplica las reglas de transformación dimensional sobre los datos extraídos."""
+def task_transformar(staging_data: dict) -> dict:
+    """Aplica las reglas de transformación dimensional sobre los datos extraídos de Staging."""
     print("Iniciando tarea de transformación de datos...")
-    data_dict = transformar_datos(raw_data)
-    validar_modelo_dw(data_dict)
+    dw_data = transformar_datos(staging_data)
+    validar_modelo_dw(dw_data)
     print("------------------------------------------------")
     print("Validacion del modelo DW completada sin errores.")
     print("------------------------------------------------")
     print("Transformación finalizada exitosamente.")
-    return data_dict
+    return dw_data
 
 
 @task(name="Cargar Data Warehouse", log_prints=True)
-def task_cargar(data_dict: dict, raw_data: dict) -> bool:
+def task_cargar(dw_data: dict, staging_data: dict) -> bool:
     """Limpia y carga los datos transformados en PostgreSQL respetando el orden referencial."""
     engine = get_engine()
 
@@ -103,11 +104,11 @@ def task_cargar(data_dict: dict, raw_data: dict) -> bool:
             )
 
             print("Cargando dimensiones y ventas...")
-            load_data(conn, data_dict)
+            load_data(conn, dw_data)
 
             print("Validando antes de confirmar transacción...")
-            # Reutiliza exactamente los mismos datos extraídos inicialmente en raw_data
-            verify_dw_data(conn, source_data=raw_data)
+            # Reutiliza exactamente los mismos datos extraídos inicialmente en staging_data
+            verify_dw_data(conn, staging_data)
 
             print("Transacción confirmada exitosamente.")
             return True
@@ -116,31 +117,34 @@ def task_cargar(data_dict: dict, raw_data: dict) -> bool:
 
 
 @task(name="Validar Data Warehouse", log_prints=True)
-def task_validar(raw_data: dict | None = None) -> bool:
+def task_validar(staging_data: dict | None = None) -> bool:
     """Ejecuta los controles de calidad, conteos y conciliación monetaria en PostgreSQL."""
     engine = get_engine()
-    print("Ejecutando validación de cuadratura en el Data Warehouse...")
-    verify_dw_data(engine, source_data=raw_data)
-    return True
+    try:
+        print("Ejecutando validación de cuadratura en el Data Warehouse...")
+        verify_dw_data(engine, staging_data)
+        return True
+    finally:
+        engine.dispose()
 
 
 @flow(name="Chinook ETL Data Warehouse", log_prints=True)
 def etl_chinook(load_dw: bool = True):
     """Flujo principal orquestado con Prefect para el Data Warehouse de Chinook."""
     # 0. Extracción única desde PostgreSQL Staging
-    raw_data = task_extraer_staging()
+    staging_data = task_extraer_staging()
 
     # 1. Validaciones previas en memoria sobre los datos de Staging
-    task_validar_integridad(raw_data)
-    task_validar_calidad_negocio(raw_data)
+    task_validar_integridad(staging_data)
+    task_validar_calidad_negocio(staging_data)
 
     # 2. Tarea de Transformación (T)
-    datos = task_transformar(raw_data)
+    dw_data = task_transformar(staging_data)
 
     # 3. Tarea de Carga y Validación (L) - Controlable para auditoría sin escritura
     if load_dw:
-        task_cargar(datos, raw_data)
-        task_validar(raw_data)
+        task_cargar(dw_data, staging_data)
+        task_validar(staging_data)
     else:
         print("\n[MODO AUDITORIA/SIN CARGA]: Extracción, validación y transformación completadas en memoria.")
         print("No se realizaron escrituras en PostgreSQL 18 chinook_dw.")

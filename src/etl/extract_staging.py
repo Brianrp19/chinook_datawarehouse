@@ -121,7 +121,7 @@ def extract_staging_data() -> Dict[str, pd.DataFrame]:
     )
     engine = create_engine(db_url)
 
-    raw_data: Dict[str, pd.DataFrame] = {}
+    staging_data: Dict[str, pd.DataFrame] = {}
 
     try:
         with engine.connect().execution_options(isolation_level="REPEATABLE READ") as connection:
@@ -148,7 +148,7 @@ def extract_staging_data() -> Dict[str, pd.DataFrame]:
                         if col in df.columns:
                             df[col] = df[col].astype(float)
 
-                    raw_data[key] = df
+                    staging_data[key] = df
     except Exception as e:
         raise ConnectionError(
             f"Error crítico al extraer datos desde PostgreSQL Staging ({cfg['host']}:{cfg['port']}/{cfg['dbname']}): {e}"
@@ -157,13 +157,13 @@ def extract_staging_data() -> Dict[str, pd.DataFrame]:
         engine.dispose()
 
     # Validar que se extrajeron exactamente las 11 tablas y 15.607 registros
-    total_records = sum(len(df) for df in raw_data.values())
-    if len(raw_data) != 11 or total_records != 15607:
+    total_records = sum(len(df) for df in staging_data.values())
+    if len(staging_data) != 11 or total_records != 15607:
         raise ValueError(
-            f"Extracción incompleta o alterada: se obtuvieron {len(raw_data)} tablas y {total_records} registros (esperados: 11 tablas y 15607 registros)."
+            f"Extracción incompleta o alterada: se obtuvieron {len(staging_data)} tablas y {total_records} registros (esperados: 11 tablas y 15607 registros)."
         )
 
-    return raw_data
+    return staging_data
 
 
 if __name__ == "__main__":

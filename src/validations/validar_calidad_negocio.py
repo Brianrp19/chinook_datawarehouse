@@ -10,19 +10,19 @@ import pandas as pd
 from etl.extract_staging import extract_staging_data
 
 
-def validar_calidad_negocio(raw_data: dict | None = None):
+def validar_calidad_negocio(staging_data: dict | None = None):
 
     errores = []
 
-    if raw_data is None:
-        raw_data = extract_staging_data()
+    if staging_data is None:
+        staging_data = extract_staging_data()
 
     # Carga de datasets necesarios desde Staging
-    customer = raw_data.get("Customer", raw_data.get("customer")).copy()
-    employee = raw_data.get("Employee", raw_data.get("employee")).copy()
-    invoice = raw_data.get("Invoice", raw_data.get("invoice")).copy()
-    invoice_line = raw_data.get("InvoiceLine", raw_data.get("invoice_line")).copy()
-    track = raw_data.get("Track", raw_data.get("track")).copy()
+    customer = staging_data.get("Customer", staging_data.get("customer")).copy()
+    employee = staging_data.get("Employee", staging_data.get("employee")).copy()
+    invoice = staging_data.get("Invoice", staging_data.get("invoice")).copy()
+    invoice_line = staging_data.get("InvoiceLine", staging_data.get("invoice_line")).copy()
+    track = staging_data.get("Track", staging_data.get("track")).copy()
 
     print("=" * 70)
     print("VALIDACIONES DE CALIDAD Y REGLAS DE NEGOCIO")
