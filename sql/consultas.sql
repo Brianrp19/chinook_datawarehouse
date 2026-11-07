@@ -1,15 +1,13 @@
-////
+/*
 ### 1. Cubo de ventas con todas las combinaciones de dimensiones
 
 Sirve para: obtener ventas por año, país, género, formato y agente, junto con todos sus subtotales y el total general.
 
 CUBE sobre cinco atributos produce 32 combinaciones de agrupación. Es una operación típica de análisis multidimensional.
 
-
-
 Cómo interpretarla: un NULL puede representar un subtotal. nivel_agrupacion = 0 indica el detalle completo y 31 el total general.
 No sumes todas las filas: los subtotales cuentan las mismas ventas en distintos niveles.
-////
+*/
 
 SELECT
     d.year AS anio,
@@ -50,7 +48,7 @@ ORDER BY nivel_agrupacion, ventas DESC;
 
 
 
-////
+/*
 ### 2. Similitud de gustos entre todos los clientes
 
 Sirve para: encontrar parejas de clientes que compraron canciones similares. Puede ayudar a identificar públicos para recomendaciones.
@@ -59,10 +57,8 @@ Compara cada cliente con todos los demás y calcula el índice de Jaccard:
 
 Canciones compartidas / Canciones distintas entre ambos
 
-
-
 Cómo interpretarla: cuanto más cerca de 1, mayor coincidencia. 0 indica que no comparten canciones compradas.
-////
+*/
 
 
 WITH compras AS (
@@ -122,17 +118,16 @@ JOIN dim_customer cb ON cb.customer_key = s.cliente_b
 ORDER BY s.indice_jaccard DESC, s.canciones_compartidas DESC;
 
 
-////
+/*
 3. Ventas diarias con ventanas móviles y detección de picos
 
 Sirve para: detectar días con ventas inusualmente altas respecto a los 30 días anteriores, por país.
 
 Construye todas las combinaciones de fecha y país, incluso cuando no hubo ventas. Después calcula promedio, desviación estándar, acumulado y puntuación estadística.
 
-
-Cómo interpretarla: una puntuación de 3 significa que la venta está tres desviaciones por encima del promedio previo. Es una señal para investigar; 
+Cómo interpretarla: una puntuación de 3 significa que la venta está tres desviaciones por encima del promedio previo. Es una señal para investigar;
 no demuestra un error, especialmente con ventas tan esporádicas como Chinook.
-////
+*/
 
 
 WITH paises AS (
@@ -199,7 +194,7 @@ WHERE dias_previos = 30
 ORDER BY puntuacion_z DESC, ventas DESC;
 
 
-////
+/*
 ### 4. Prueba de carga con 2.240.000 filas virtuales
 
 Esta es la que más sirve para exigirle recursos con tu tamaño actual.
@@ -207,9 +202,6 @@ Esta es la que más sirve para exigirle recursos con tu tamaño actual.
 Sirve para: observar el costo de procesar millones de filas, agrupar, contar facturas distintas y ordenar resultados. Multiplica virtualmente las ventas por 1.000; no inserta registros.
 
 Cada repetición se interpreta como un escenario independiente.
-
-
-
 
 Empieza cambiando 1000 por 100 y después sube a 1000:
 
@@ -229,7 +221,7 @@ En el plan de ejecución revisa:
 - actual rows y loops: cuántas filas procesó cada operación.
 
 Si compartes el resultado del EXPLAIN de la cuarta consulta, podemos identificar qué parte consumió más recursos.
-////
+*/
 
 
 EXPLAIN (ANALYZE, BUFFERS)

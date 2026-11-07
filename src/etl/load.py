@@ -12,7 +12,11 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, Connection
+from etl.extract_staging import extract_staging_data
 from etl.transform import transformar_datos
+from validations.validar_integridad import validar_integridad
+from validations.validar_calidad_negocio import validar_calidad_negocio
+from validations.validar_modelo_dw import validar_modelo_dw
 
 
 PROJECT_DIR = SRC_DIR.parent
@@ -247,14 +251,25 @@ def main():
     )
     engine = create_engine(db_url)
 
-    # 1. Transformar datos en memoria (T)
-    data_dict = transformar_datos()
+    try:
+        # 1. Extraer y validar datos de Staging
+        staging_data = extract_staging_data()
+        validar_integridad(staging_data)
+        validar_calidad_negocio(staging_data)
 
-    # 2. Cargar en PostgreSQL (L)
-    load_data(engine, data_dict)
+        # 2. Transformar y validar modelo en memoria (T)
+        dw_data = transformar_datos(staging_data)
+        validar_modelo_dw(dw_data)
 
-    # 3. Validar cuadratura final directamente contra PostgreSQL
-    verify_dw_data(engine)
+        # 3. Cargar y conciliar de forma transaccional atómica en PostgreSQL (L)
+        with engine.begin() as conn:
+            conn.execute(
+                text("TRUNCATE fact_sales, dim_track, dim_customer, dim_employee, dim_date CASCADE;")
+            )
+            load_data(conn, dw_data)
+            verify_dw_data(conn, staging_data)
+    finally:
+        engine.dispose()
 
 
 if __name__ == "__main__":
