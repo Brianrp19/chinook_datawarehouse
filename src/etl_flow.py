@@ -132,20 +132,40 @@ def task_validar(staging_data: dict | None = None) -> bool:
 def etl_chinook(load_dw: bool = True):
     """Flujo principal orquestado con Prefect para el Data Warehouse de Chinook."""
     # 0. Extracción única desde PostgreSQL Staging
-    staging_data = task_extraer_staging()
+    staging_data = task_extraer_staging.submit()
 
     # 1. Validaciones previas en memoria sobre los datos de Staging
-    task_validar_integridad(staging_data)
-    task_validar_calidad_negocio(staging_data)
+    integridad = task_validar_integridad.submit(
+        staging_data,
+        wait_for=[staging_data]
+    )
+
+    calidad = task_validar_calidad_negocio.submit(
+        staging_data,
+        wait_for=[integridad]
+    )
 
     # 2. Tarea de Transformación (T)
-    dw_data = task_transformar(staging_data)
+    dw_data = task_transformar.submit(
+        staging_data,
+        wait_for=[calidad]
+    )
 
     # 3. Tarea de Carga y Validación (L) - Controlable para auditoría sin escritura
     if load_dw:
-        task_cargar(dw_data, staging_data)
-        task_validar(staging_data)
+        cargar = task_cargar.submit(
+            dw_data, 
+            staging_data
+        )
+
+        validacion = task_validar.submit(
+            staging_data,
+            wait_for=[cargar]
+        )
+
+        validacion.result()
     else:
+        dw_data.result()
         print("\n[MODO AUDITORIA/SIN CARGA]: Extracción, validación y transformación completadas en memoria.")
         print("No se realizaron escrituras en PostgreSQL 18 chinook_dw.")
 
