@@ -21,12 +21,13 @@ if _standalone_mode:
     os.environ["PREFECT_API_URL"] = ""
 elif _api_url and not _help_mode:
     try:
-        urllib.request.urlopen(_api_url.rstrip("/") + "/health", timeout=1.0)
+        with urllib.request.urlopen(_api_url.rstrip("/") + "/health", timeout=5.0):
+            pass
     except Exception as _e:
         raise ConnectionError(
             f"\n[ERROR PREFECT API]: No se pudo conectar al servidor compartido en {_api_url}.\n"
             "Para la demostración, inicie el servidor compartido en el puerto 4201:\n"
-            r"  .\.venv\Scripts\prefect.exe server start --port 4201\n"
+            "  powershell -ExecutionPolicy Bypass -File scripts/start_prefect.ps1\n"
             "Para ejecución local aislada sin servidor compartido, utilice el parámetro --standalone."
         ) from _e
 
@@ -180,12 +181,9 @@ if __name__ == "__main__":
     elif args.no_load:
         print("Iniciando ejecución de prueba en modo seguro (sin escritura en DW)...")
         etl_chinook(load_dw=False)
-    elif args.serve:
+    else :
         print("Iniciando servicio persistente de Prefect (chinook-local)...")
         etl_chinook.serve(
             name="chinook-local",
             limit=1,
         )
-    else:
-        print("Especifique una opción: --run-once (ejecución única), --no-load (modo auditoría) o --serve (servidor)")
-        parser.print_help()

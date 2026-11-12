@@ -1,4 +1,4 @@
-"""Pruebas unitarias de controles de integridad, calidad de negocio y esquema DW."""
+#Pruebas unitarias de controles de integridad, calidad de negocio y esquema DW.
 import contextlib
 import io
 import sys

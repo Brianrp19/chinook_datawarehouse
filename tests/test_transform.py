@@ -1,4 +1,4 @@
-"""Pruebas unitarias para la capa de transformación dimensional (Star Schema)."""
+#Pruebas unitarias para la capa de transformación dimensional (Star Schema)
 import contextlib
 import io
 import sys

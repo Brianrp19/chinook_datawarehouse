@@ -1,4 +1,4 @@
-"""Datos sintéticos de referencia con estructura idéntica a PostgreSQL Staging."""
+#Datos sintéticos de referencia con estructura idéntica a PostgreSQL Staging.
 from __future__ import annotations
 
 import numpy as np
