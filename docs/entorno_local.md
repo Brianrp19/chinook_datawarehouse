@@ -74,3 +74,12 @@ $env:PREFECT_SERVER_DATABASE_CONNECTION_URL = "sqlite+aiosqlite:///$($PWD.Path.R
 $env:PREFECT_API_DATABASE_CONNECTION_URL = $env:PREFECT_SERVER_DATABASE_CONNECTION_URL
 prefect server start --host 127.0.0.1 --port 4201
 
+python -m prefect server start --host 127.0.0.1 --port 4201
+
+.\.venv\Scripts\python.exe -m prefect server start --host 127.0.0.1 --port 4201
+
+$env:PREFECT_HOME = "$PWD\.prefect_nuevo"
+$env:PREFECT_SERVER_DATABASE_CONNECTION_URL = "sqlite+aiosqlite:///$($PWD.Path.Replace('\','/'))/.prefect_nuevo/prefect.db"
+$env:PREFECT_API_DATABASE_CONNECTION_URL = $env:PREFECT_SERVER_DATABASE_CONNECTION_URL
+
+.\.venv\Scripts\python.exe -m prefect server start --host 127.0.0.1 --port 4201

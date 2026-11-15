@@ -82,13 +82,15 @@ def task_transformar(staging_data: dict) -> dict:
     """Aplica las reglas de transformación dimensional sobre los datos extraídos de Staging."""
     print("Iniciando tarea de transformación de datos...")
     dw_data = transformar_datos(staging_data)
+    print("Transformación finalizada exitosamente.")
+    return dw_data
+
+@task(name="Verificar Modelo DW", log_prints=True)
+def task_verificar_modelo_dw(dw_data: dict) -> None:
     validar_modelo_dw(dw_data)
     print("------------------------------------------------")
     print("Validacion del modelo DW completada sin errores.")
     print("------------------------------------------------")
-    print("Transformación finalizada exitosamente.")
-    return dw_data
-
 
 @task(name="Cargar Data Warehouse", log_prints=True)
 def task_cargar(dw_data: dict, staging_data: dict) -> bool:
@@ -151,11 +153,17 @@ def etl_chinook(load_dw: bool = True):
         wait_for=[calidad]
     )
 
+    validation_model = task_verificar_modelo_dw.submit(
+        dw_data,
+        wait_for=[dw_data]
+    )
+
     # 3. Tarea de Carga y Validación (L) - Controlable para auditoría sin escritura
     if load_dw:
         cargar = task_cargar.submit(
             dw_data, 
-            staging_data
+            staging_data,
+            wait_for=[validation_model]
         )
 
         validacion = task_validar.submit(
