@@ -48,7 +48,7 @@ El sistema global Chinook está organizado de forma desacoplada en dos proyectos
 +--------------------------------------------------------------+
 |  CAPA ANALÍTICA Y REPORTES: Microsoft Excel                  |
 |  - Archivo: excel/Chinook_Reporte_Ejecutivo.xlsx             |
-|  - Modelo tabular, KPIs, Tablas Dinámicas y Gráficos         |
+|  - Modelo tabular, tablas dinámicas y filtros compartidos      |
 +--------------------------------------------------------------+
 ```
 
@@ -204,9 +204,8 @@ chinook_datawarehouse/
 ├── drivers/
 │   └── Npgsql-4.0.17.msi                  # Instalador del conector PostgreSQL para Excel
 ├── excel/
-│   ├── Chinook_Reporte_Ejecutivo.xlsx       # Reportes, filtros y controles del DW
-│   ├── Chinook_Analisis_DataWarehouse.xlsx  # Libro anterior conservado como referencia
-│   └── GUIA_REPORTES.md                    # Indicadores, criterios y guía de exposición
+│   ├── Chinook_Reporte_Ejecutivo.xlsx       # Reportes y filtros del DW
+│   └── GUIA_REPORTES.md                    # Tablas dinámicas, conexión y guía de exposición
 ├── scripts/
 │   ├── check_environment.py               # Verificador de conexiones, permisos y contrato
 │   └── explorar_datos.py                  # Exploración y perfilado de las 11 tablas Staging
@@ -362,11 +361,11 @@ La visualización y explotación analítica de negocio se presenta mediante **Mi
 Start-Process ".\excel\Chinook_Reporte_Ejecutivo.xlsx"
 ```
 
-El [reporte ejecutivo](excel/Chinook_Reporte_Ejecutivo.xlsx) reúne tres reportes de negocio (evolución de ingresos, clientes y catálogo), filtros compartidos, controles y una tabla dinámica editable. Incluye doce tablas dinámicas nativas basadas en el Modelo de datos. La [guía de los reportes](excel/GUIA_REPORTES.md) explica los criterios del enunciado, los indicadores y cómo demostrar la conexión.
+El [libro de análisis](excel/Chinook_Reporte_Ejecutivo.xlsx) abre en **`00_Resumen`**, con tres gráficos, filtros y botones hacia **cinco tablas dinámicas nativas y visibles**: `01_Ventas`, `02_Paises`, `03_Clientes`, `04_Catalogo` y `05_Formatos`. Las tablas empiezan en `B9`; al seleccionarlas se puede abrir **Analizar tabla dinámica → Lista de campos**. Los filtros de año, país y género se comparten entre el resumen y las cinco tablas de negocio. La [guía de los reportes](excel/GUIA_REPORTES.md) explica las hojas, los cálculos y una demostración breve para la exposición.
 
 El libro contiene los datos guardados del archivo anterior, que permiten explorar los reportes sin refrescar PostgreSQL. **La actualización contra el DW activo debe verificarse en el equipo de la presentación**: abrir un libro con cifras visibles no demuestra una conexión exitosa.
 
-Se conservan sin modificaciones `excel/Chinook_Analisis_DataWarehouse.xlsx` y el respaldo histórico `docs/historico/Book1.xlsx`.
+El respaldo histórico del libro original se conserva en `docs/historico/Book1.xlsx`.
 
 ### Arquitectura de Conexión en Excel
 - **Motor:** **Power Query** con origen PostgreSQL (`localhost:5432`, base de datos `chinook_dw`). Si el DW usa otro host o puerto, cambiar el origen en las cinco consultas. El puerto de Staging no se aplica automáticamente al DW.
@@ -376,8 +375,8 @@ Se conservan sin modificaciones `excel/Chinook_Analisis_DataWarehouse.xlsx` y el
   3. `dim_employee` (8 registros)
   4. `dim_track` (3.503 registros)
   5. `fact_sales` (2.240 registros, $2.328,60)
-- **Actualización manual desde el DW:** Con `chinook_dw` preparado y cargado, usar **Datos → Actualizar todo** (*Refresh All*) y proporcionar una cuenta con lectura del DW. Esperar a que terminen las cinco consultas sin errores, actualizar las tablas dinámicas si hace falta y revisar la hoja `04_Control`. Excel consulta el contenido actual del DW; si cambiaron los datos de Staging, primero debe ejecutarse el ETL del DW. Un fallo de conexión puede dejar visibles los datos guardados anteriores.
-- **Interpretación:** Los importes son ingresos por ventas, no ganancias. Las facturas se cuentan por `invoice_id` diferentes, no por filas de detalle. Los filtros por año, país y género se comparten entre reportes; la hoja de controles revisa el modelo completo sin esos filtros.
+- **Actualización manual desde el DW:** Con `chinook_dw` preparado y cargado, usar **Datos → Actualizar todo** (*Refresh All*) y proporcionar una cuenta con lectura del DW. Esperar a que terminen las cinco consultas sin errores, actualizar las tablas dinámicas si hace falta y contrastar el total general de `01_Ventas` con PostgreSQL. Excel consulta el contenido actual del DW; si cambiaron los datos de Staging, primero debe ejecutarse el ETL del DW. Un fallo de conexión puede dejar visibles los datos guardados anteriores.
+- **Interpretación:** Los importes son ingresos por ventas, no ganancias. Las facturas se cuentan por `invoice_id` diferentes, no por filas de detalle. Los filtros por año, país y género se comparten entre reportes. Las tablas muestran la selección actual.
 - **Vista Analítica Complementaria (`vw_ventas_excel`):** Definida en [`sql/vista_excel.sql`](sql/vista_excel.sql), ofrece una alternativa desnormalizada y aplanada para consultas ad-hoc directas.
 
 ### Paso 1: Tener el DW cargado y Excel preparado
@@ -461,7 +460,7 @@ Cada compañero configura su acceso en su equipo. El repositorio no incluye cont
 1. En Excel, ejecutar **Datos → Actualizar todo**.
 2. Esperar a que terminen las cinco consultas en **Consultas y conexiones** y comprobar que ninguna muestre errores. Si es necesario, actualizar después las tablas dinámicas desde **Analizar tabla dinámica → Actualizar**.
 3. Borrar los filtros de año, país y género para revisar el conjunto completo.
-4. En `01_Resumen`, comprobar los resultados de la fotografía original de Chinook:
+4. En el total general de `01_Ventas`, comprobar los resultados de la fotografía original de Chinook:
 
    | Indicador | Valor esperado |
    |---|---:|
@@ -470,13 +469,13 @@ Cada compañero configura su acceso en su equipo. El repositorio no incluye cont
    | Unidades vendidas | 2.240 |
    | Clientes con ventas | 59 |
 
-5. Revisar `04_Control`: deben cuadrar las 2.240 líneas de venta, las filas de las dimensiones y los controles de duplicados, relaciones y precio por cantidad. Esta hoja revisa todo el modelo, sin los filtros comerciales.
-6. Probar el filtro de año `2009`: los ingresos deben cambiar a **449,46** y las facturas a **83**. Abrir Clientes y Catálogo para confirmar que comparten la selección. Después borrar el filtro para volver al total general.
+5. Revisar que los gráficos de `00_Resumen` coincidan con las tablas de ventas, países y catálogo para la misma selección.
+6. Probar el filtro de año `2009`: los ingresos deben cambiar a **449,46** y las facturas a **83**. Abrir `03_Clientes` y `04_Catalogo` para confirmar que comparten la selección. Después borrar el filtro para volver al total general.
 7. Contrastar los totales generales con el DW que acaba de cargarse y guardar el libro después de confirmar el refresco correcto.
 
-Los valores esperados pertenecen al conjunto Chinook original. Si se incorporan nuevas ventas legítimas, primero conciliar la nueva carga y después actualizar las referencias de los controles.
+Los valores de referencia pertenecen al conjunto Chinook original. Si se incorporan nuevas ventas legítimas, conciliar la nueva carga y contrastar los nuevos totales con el DW. Las validaciones de duplicados, referencias e importes pertenecen al ETL del DW.
 
-**Una actualización válida exige que las consultas terminen sin errores y que los resultados coincidan con el DW.** Los indicadores y filtros también funcionan con la copia de datos guardada dentro del libro; ver números o filtrar correctamente no demuestra por sí solo una conexión actual a PostgreSQL.
+**Una actualización válida exige que las consultas terminen sin errores y que los resultados coincidan con el DW.** Las tablas, los gráficos y los filtros también funcionan con la copia de datos guardada dentro del libro; ver números o filtrar correctamente no demuestra por sí solo una conexión actual a PostgreSQL.
 
 Prefect coordina el ETL y permite revisar sus ejecuciones. Excel actualiza sus reportes mediante Power Query; abrir el libro o pulsar **Actualizar todo** no ejecuta el ETL de Staging ni el del DW.
 
