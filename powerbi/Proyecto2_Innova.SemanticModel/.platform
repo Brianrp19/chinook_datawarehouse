@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Chinook - Grupo Innova"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "7b9e5292-4ec8-4b80-b20d-5be9ab349b21"
+  }
+}

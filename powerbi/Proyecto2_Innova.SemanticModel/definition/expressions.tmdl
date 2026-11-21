@@ -1,0 +1,6 @@
+expression Servidor = "localhost:5432" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 305555b9-fc74-4a36-a9aa-4d23d45b7f71
+
+expression BaseDatos = "chinook_dw" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: fd3fa97d-4c9b-41f8-be3b-f7c4be3b13aa
+

@@ -1,0 +1,261 @@
+/// Tabla de negocio importada directamente desde chinook_dw.public.dim_customer; modelo estrella del Proyecto 1.
+table Clientes
+	lineageTag: 55804141-c2a0-4f25-86d9-e3e414b36a10
+
+	/// Clientes distintos con ventas en el contexto seleccionado.
+	measure 'Clientes compradores' = DISTINCTCOUNT('Ventas'[Clave cliente])
+		formatString: #,##0
+		displayFolder: Base
+		lineageTag: 699359e9-aeaa-4022-a0cd-8a1a2d002ffa
+
+	/// Número de clientes compradores del mes previo; denominador de la retención.
+	measure 'Clientes mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Clientes compradores], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: c7e4a5f3-1f94-4146-90c0-74ef7fd463c0
+
+	/// Intersección de compradores del mes actual y del inmediatamente anterior; no clientes históricos acumulados.
+	measure 'Clientes retenidos' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			VAR _ClientesAntes = CALCULATETABLE(
+			    VALUES('Ventas'[Clave cliente]), REMOVEFILTERS('Fecha'), _FechasAnteriores
+			)
+			VAR _ClientesAhora = VALUES('Ventas'[Clave cliente])
+			RETURN IF(
+			    HASONEVALUE('Fecha'[Periodo]) && COUNTROWS(_ClientesAntes) > 0,
+			    COALESCE(COUNTROWS(INTERSECT(_ClientesAntes, _ClientesAhora)), 0)
+			)
+		formatString: #,##0
+		displayFolder: Retención
+		lineageTag: 59389939-56f3-4b6b-b33d-1a688f671ae8
+
+	/// KPI-02 | Responsable: Cristopher Quiros. Ingresos del mes divididos entre clientes distintos que compraron en ese mes. No utiliza todos los clientes del catálogo.
+	measure 'Ingreso promedio por cliente comprador' = IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(CONVERT([Ingresos], DOUBLE), [Clientes compradores]))
+		formatString: #,##0.00 "UM"
+		displayFolder: KPIs aprobados
+		lineageTag: 5db7e7c8-331d-4217-8a0d-b81843eef988
+
+	/// Valor del KPI-02 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-02 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Ingreso promedio por cliente comprador], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0.00 "UM"
+		displayFolder: Comparación mensual
+		lineageTag: e7b31111-b68a-4977-a891-ccbb314be4f8
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-02 cambio' =
+			VAR _Actual = [Ingreso promedio por cliente comprador]
+			VAR _Anterior = [KPI-02 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: #,##0.00 "UM"
+		displayFolder: Comparación mensual
+		lineageTag: 065f99d3-30a9-4bea-b22d-124dd663b794
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-02 color' =
+			VAR _Cambio = [KPI-02 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: c00aefaa-7a1a-4f41-8505-5f4b9bf4538d
+
+	/// KPI-03 | Responsable: Jeremy Rodriguez. Clientes únicos con al menos una compra en el mes seleccionado.
+	measure 'Clientes compradores activos por mes' = IF(HASONEVALUE('Fecha'[Periodo]), [Clientes compradores])
+		formatString: #,##0
+		displayFolder: KPIs aprobados
+		lineageTag: 5fc8dc65-5e79-4a9b-a2d6-6ef3a5300cec
+
+	/// Valor del KPI-03 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-03 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Clientes compradores activos por mes], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: f14dcb47-a084-4148-b62f-2b1820fdeda7
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-03 cambio' =
+			VAR _Actual = [Clientes compradores activos por mes]
+			VAR _Anterior = [KPI-03 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: b0116850-7028-45c8-ae8d-0327fe6da540
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-03 color' =
+			VAR _Cambio = [KPI-03 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: f40eb3e2-2503-43c0-a632-9c5eb2526687
+
+	/// KPI-04 | Responsable: Jeremy Rodriguez. Compradores presentes en ambos meses / compradores del mes anterior. Cero significa que ninguno volvió; BLANK indica ausencia de base.
+	measure 'Tasa de retención mensual de clientes' = IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Clientes retenidos], [Clientes mes anterior]))
+		formatString: 0.0%
+		displayFolder: KPIs aprobados
+		lineageTag: de6356e5-f556-455d-9af1-1cfa5a430da4
+
+	/// Valor del KPI-04 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-04 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Tasa de retención mensual de clientes], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: 0.0%
+		displayFolder: Comparación mensual
+		lineageTag: 9a19acdb-b1e4-4893-8597-e6cfa1532e84
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-04 cambio' =
+			VAR _Actual = [Tasa de retención mensual de clientes]
+			VAR _Anterior = [KPI-04 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: Comparación mensual
+		lineageTag: de237778-ce2d-4e08-86cf-d7a2d9368a1a
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-04 color' =
+			VAR _Cambio = [KPI-04 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: 3f57e136-beec-4982-981a-f72737719670
+
+	/// KPI-07 | Responsable: Miguel Cruz. Países de clientes que realmente compraron en el mes; no todos los países de la dimensión. La geografía corresponde al cliente actual del DW.
+	measure 'Cantidad de países con ventas mensuales' =
+			VAR _PaisesConVenta = FILTER(
+			    VALUES('Clientes'[País]),
+			    CALCULATE(COUNTROWS('Ventas')) > 0
+			)
+			RETURN IF(HASONEVALUE('Fecha'[Periodo]), COUNTROWS(_PaisesConVenta))
+		formatString: #,##0
+		displayFolder: KPIs aprobados
+		lineageTag: c1df7c6f-a5f0-473c-b966-fefa772d99fa
+
+	/// Valor del KPI-07 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-07 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Cantidad de países con ventas mensuales], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: 5e3585c0-0a95-402c-b607-848f16611469
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-07 cambio' =
+			VAR _Actual = [Cantidad de países con ventas mensuales]
+			VAR _Anterior = [KPI-07 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: 767480f4-5ec1-49c3-8ef2-c3b707f722f1
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-07 color' =
+			VAR _Cambio = [KPI-07 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: c8c51eab-2949-4cfb-bb95-68ca773e6a2a
+
+	/// Origen: public.dim_customer.customer_key.
+	column 'Clave cliente'
+		dataType: int64
+		isHidden
+		lineageTag: 63f1b26c-ac5a-4943-9443-52758ac143f3
+		summarizeBy: none
+		sourceColumn: Clave cliente
+
+	/// Origen: public.dim_customer.customer_id.
+	column 'Id cliente'
+		dataType: int64
+		isHidden
+		lineageTag: f6f7e0b9-40f8-40fa-8838-3a04dfd5f407
+		summarizeBy: none
+		sourceColumn: Id cliente
+
+	/// Origen: public.dim_customer.full_name.
+	column Cliente
+		dataType: string
+		lineageTag: 77a4c98a-04ec-4667-857b-35584ee7a1cf
+		summarizeBy: none
+		sourceColumn: Cliente
+
+	/// Origen: public.dim_customer.country.
+	column País
+		dataType: string
+		lineageTag: 52e83c86-326f-4fb1-af5d-6dbe14467917
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: País
+
+	/// Origen: public.dim_customer.city.
+	column Ciudad
+		dataType: string
+		lineageTag: 4e7bb5c9-e292-4234-b929-491e816db1fd
+		dataCategory: City
+		summarizeBy: none
+		sourceColumn: Ciudad
+
+	partition Clientes = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database(Servidor, BaseDatos, [CreateNavigationProperties=false]),
+				    Tabla = Origen{[Schema="public", Item="dim_customer"]}[Data],
+				    Seleccion = Table.SelectColumns(Tabla, {"customer_key", "customer_id", "full_name", "country", "city"}),
+				    Nombres = Table.RenameColumns(Seleccion, {{"customer_key", "Clave cliente"}, {"customer_id", "Id cliente"}, {"full_name", "Cliente"}, {"country", "País"}, {"city", "Ciudad"}}),
+				    Tipos = Table.TransformColumnTypes(Nombres, {{"Clave cliente", Int64.Type}, {"Id cliente", Int64.Type}, {"Cliente", type text}, {"País", type text}, {"Ciudad", type text}})
+				in
+				    Tipos
+

@@ -1,0 +1,18 @@
+EVALUATE
+SUMMARIZECOLUMNS(
+    'Fecha'[Periodo],
+    "Ingresos", [Ingresos],
+    "Facturas", [Facturas],
+    "Unidades", [Unidades vendidas],
+    "ClientesMesAnterior", [Clientes mes anterior],
+    "ClientesRetenidos", [Clientes retenidos],
+    "KPI01_CrecimientoIngresos", [Crecimiento mensual de ingresos],
+    "KPI02_IngresoPromedioCliente", [Ingreso promedio por cliente comprador],
+    "KPI03_ClientesActivos", [Clientes compradores activos por mes],
+    "KPI04_RetencionClientes", [Tasa de retención mensual de clientes],
+    "KPI05_CrecimientoUnidades", [Crecimiento mensual de unidades vendidas],
+    "KPI06_ConcentracionGenero", [Concentración de ingresos por género musical],
+    "KPI07_PaisesConVentas", [Cantidad de países con ventas mensuales],
+    "KPI08_ConcentracionTop5Artistas", [Concentración de ingresos en los cinco artistas principales]
+)
+ORDER BY 'Fecha'[Periodo]

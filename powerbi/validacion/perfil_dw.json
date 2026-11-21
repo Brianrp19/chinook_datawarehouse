@@ -1,0 +1,23 @@
+{
+  "fuente": "PostgreSQL / chinook_dw / public",
+  "propietario": "chinook_dw_loader",
+  "tablas": {
+    "dim_date": 1826,
+    "dim_customer": 59,
+    "dim_employee": 8,
+    "dim_track": 3503,
+    "fact_sales": 2240
+  },
+  "primera_venta": "2009-01-01",
+  "ultima_venta": "2013-12-22",
+  "meses_con_ventas": 60,
+  "facturas": 412,
+  "clientes_compradores": 59,
+  "unidades": 2240,
+  "ingresos": 2328.6,
+  "retencion_meses_con_base": 59,
+  "retencion_meses_con_recompra": 40,
+  "metas_aprobadas": null,
+  "nota_metas": "El documento aprobado no fija metas numéricas; las comparaciones históricas no son metas.",
+  "nota_moneda": "La fuente no contiene un código de moneda. Se muestran unidades monetarias (UM)."
+}

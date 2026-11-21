@@ -1,0 +1,14 @@
+{
+  "fuente": "chinook_dw",
+  "motor_dax": "Power BI Desktop / Analysis Services",
+  "meses": 60,
+  "kpis": 8,
+  "comparaciones_kpi": 480,
+  "comparaciones_totales": 780,
+  "errores": [],
+  "tolerancia": {
+    "relativa": 1e-10,
+    "absoluta": 1e-10
+  },
+  "nota": "Incluye valores BLANK en el primer mes y cero cuando no hubo clientes retenidos."
+}

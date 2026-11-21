@@ -1,0 +1,185 @@
+/// Tabla de negocio importada directamente desde chinook_dw.public.dim_track; modelo estrella del Proyecto 1.
+table Canciones
+	lineageTag: 5dc682d0-20e2-4773-9a16-a8fcbc78c225
+
+	/// KPI-06 | Responsable: Brian Rodriguez. Participación del género de mayores ingresos entre los géneros del contexto seleccionado. Menor concentración favorece diversificación, no equivale por sí sola a mayor rentabilidad.
+	measure 'Concentración de ingresos por género musical' =
+			VAR _Generos = ADDCOLUMNS(
+			    VALUES('Canciones'[Género]),
+			    "__IngresosGenero", CALCULATE([Ingresos])
+			)
+			VAR _Lider = MAXX(_Generos, [__IngresosGenero])
+			RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_Lider, [Ingresos]))
+		formatString: 0.0%
+		displayFolder: KPIs aprobados
+		lineageTag: 819274e1-2a61-453f-b77d-0436a9ad54f5
+
+	/// Valor del KPI-06 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-06 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Concentración de ingresos por género musical], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: 0.0%
+		displayFolder: Comparación mensual
+		lineageTag: 7252d736-0dbc-4532-a36d-db80541e2460
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-06 cambio' =
+			VAR _Actual = [Concentración de ingresos por género musical]
+			VAR _Anterior = [KPI-06 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: Comparación mensual
+		lineageTag: cb9541cc-84dc-4e3d-ad96-58d7ced6c7d0
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-06 color' =
+			VAR _Cambio = [KPI-06 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio < 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: 9f24744c-e6f8-4284-b03b-788bc9038d9b
+
+	/// KPI-08 | Responsable: Miguel Cruz. Ingresos de exactamente los cinco artistas líderes / ingresos del contexto. Se desempata por Id artista para evitar que TOPN incluya más de cinco artistas empatados.
+	measure 'Concentración de ingresos en los cinco artistas principales' =
+			VAR _Artistas = ADDCOLUMNS(
+			    VALUES('Canciones'[Id artista]),
+			    "__IngresosArtista", CALCULATE([Ingresos])
+			)
+			VAR _ConVenta = FILTER(_Artistas, NOT ISBLANK([__IngresosArtista]) && [__IngresosArtista] > 0)
+			VAR _Cinco = TOPN(
+			    5, _ConVenta,
+			    [__IngresosArtista], DESC,
+			    'Canciones'[Id artista], ASC
+			)
+			VAR _IngresosTop = SUMX(_Cinco, [__IngresosArtista])
+			RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_IngresosTop, [Ingresos]))
+		formatString: 0.0%
+		displayFolder: KPIs aprobados
+		lineageTag: 9672465c-3eaa-43e5-97ae-ae43578efa8f
+
+	/// Valor del KPI-08 en el mes anterior para comparación, no una meta aprobada.
+	measure 'KPI-08 mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Concentración de ingresos en los cinco artistas principales], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: 0.0%
+		displayFolder: Comparación mensual
+		lineageTag: 6d4285d5-91fb-40f4-ac70-6f89faeb2ea0
+
+	/// Diferencia frente al mes anterior. En tasas representa diferencia de proporciones, no crecimiento relativo.
+	measure 'KPI-08 cambio' =
+			VAR _Actual = [Concentración de ingresos en los cinco artistas principales]
+			VAR _Anterior = [KPI-08 mes anterior]
+			RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: Comparación mensual
+		lineageTag: 7d915e83-60a6-4d14-901a-a05455410864
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-08 color' =
+			VAR _Cambio = [KPI-08 cambio]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio < 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: f115432f-ff15-403b-b7cc-46f96e6b8c3d
+
+	/// Origen: public.dim_track.track_key.
+	column 'Clave canción'
+		dataType: int64
+		isHidden
+		lineageTag: e2e4d0fd-2880-4ecc-a10b-ffc368e2d7b1
+		summarizeBy: none
+		sourceColumn: Clave canción
+
+	/// Origen: public.dim_track.track_id.
+	column 'Id canción'
+		dataType: int64
+		isHidden
+		lineageTag: 28f414fd-fcfe-459e-b08a-f228cf300f0d
+		summarizeBy: none
+		sourceColumn: Id canción
+
+	/// Origen: public.dim_track.track_name.
+	column Contenido
+		dataType: string
+		lineageTag: 67077e86-c7c4-40c3-826a-f50a8feb585d
+		summarizeBy: none
+		sourceColumn: Contenido
+
+	/// Origen: public.dim_track.genre_name.
+	column Género
+		dataType: string
+		lineageTag: fc4b4d61-4243-4c5b-afb6-deb997f9916e
+		summarizeBy: none
+		sourceColumn: Género
+
+	/// Origen: public.dim_track.artist_id.
+	column 'Id artista'
+		dataType: int64
+		isHidden
+		lineageTag: 10ed2e6f-df1f-46d8-bf30-22c7d68f170f
+		summarizeBy: none
+		sourceColumn: Id artista
+
+	/// Origen: public.dim_track.artist_name.
+	column Artista
+		dataType: string
+		lineageTag: 183f735e-b6d6-48d6-b7ca-b7f518ad251b
+		summarizeBy: none
+		sourceColumn: Artista
+
+	/// Origen: public.dim_track.album_title.
+	column Álbum
+		dataType: string
+		lineageTag: 900596a6-4ba6-4434-a133-a29597d17701
+		summarizeBy: none
+		sourceColumn: Álbum
+
+	/// Origen: public.dim_track.media_type_name.
+	column 'Tipo de medio'
+		dataType: string
+		lineageTag: 1dfec7fc-4ff4-424a-b1a7-aabd6c8dcba9
+		summarizeBy: none
+		sourceColumn: Tipo de medio
+
+	/// Origen: public.dim_track.duration_minutes.
+	column 'Duración minutos'
+		dataType: decimal
+		formatString: #,##0.00
+		lineageTag: 34724d30-ebee-4945-9b9b-ad637d6872e6
+		summarizeBy: none
+		sourceColumn: Duración minutos
+
+	partition Canciones = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database(Servidor, BaseDatos, [CreateNavigationProperties=false]),
+				    Tabla = Origen{[Schema="public", Item="dim_track"]}[Data],
+				    Seleccion = Table.SelectColumns(Tabla, {"track_key", "track_id", "track_name", "genre_name", "artist_id", "artist_name", "album_title", "media_type_name", "duration_minutes"}),
+				    Nombres = Table.RenameColumns(Seleccion, {{"track_key", "Clave canción"}, {"track_id", "Id canción"}, {"track_name", "Contenido"}, {"genre_name", "Género"}, {"artist_id", "Id artista"}, {"artist_name", "Artista"}, {"album_title", "Álbum"}, {"media_type_name", "Tipo de medio"}, {"duration_minutes", "Duración minutos"}}),
+				    Tipos = Table.TransformColumnTypes(Nombres, {{"Clave canción", Int64.Type}, {"Id canción", Int64.Type}, {"Contenido", type text}, {"Género", type text}, {"Id artista", Int64.Type}, {"Artista", type text}, {"Álbum", type text}, {"Tipo de medio", type text}, {"Duración minutos", Currency.Type}})
+				in
+				    Tipos
+

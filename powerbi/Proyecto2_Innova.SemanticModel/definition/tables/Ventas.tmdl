@@ -1,0 +1,186 @@
+/// Tabla de negocio importada directamente desde chinook_dw.public.fact_sales; modelo estrella del Proyecto 1.
+table Ventas
+	lineageTag: 5b4b569b-8c1a-499c-a38a-f16c0a385dae
+
+	/// Ingresos por ventas del DW. La fuente no identifica moneda ni costos; no representa utilidad.
+	measure Ingresos = SUM('Ventas'[Importe])
+		formatString: #,##0.00 "UM"
+		displayFolder: Base
+		lineageTag: 0cba99e4-9a0f-4b9b-82bd-8ef394aac9ef
+
+	/// Suma de unidades vendidas, incluyendo los contenidos de audio y video del catálogo.
+	measure 'Unidades vendidas' = SUM('Ventas'[Unidades])
+		formatString: #,##0
+		displayFolder: Base
+		lineageTag: 05d3af82-eb64-4d6b-a6db-214fc122a63a
+
+	/// Facturas diferentes: una factura puede contener varias líneas.
+	measure Facturas = DISTINCTCOUNT('Ventas'[Id factura])
+		formatString: #,##0
+		displayFolder: Base
+		lineageTag: 1e7081c0-f0e4-4183-846e-51e59c63f2de
+
+	/// Ingresos del mes calendario inmediatamente anterior. Sin base histórica devuelve BLANK.
+	measure 'Ingresos mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Ingresos], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0.00 "UM"
+		displayFolder: Comparación mensual
+		lineageTag: 6ce9bfd2-b0ed-446b-9668-2b78a79d42fa
+
+	/// Unidades del mes anterior; conserva los filtros de país, género y demás dimensiones.
+	measure 'Unidades mes anterior' =
+			VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+			RETURN
+			    IF(
+			        HASONEVALUE('Fecha'[Periodo]),
+			        CALCULATE([Unidades vendidas], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+			    )
+		formatString: #,##0
+		displayFolder: Comparación mensual
+		lineageTag: 1040edc1-a3d7-4737-b0c1-0ff8e63e5132
+
+	/// KPI-01 | Responsable: Cristopher Quiros. Variación de ingresos frente al mes anterior. BLANK cuando no existe base o el denominador es cero.
+	measure 'Crecimiento mensual de ingresos' =
+			VAR _Anterior = [Ingresos mes anterior]
+			RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Ingresos] - _Anterior, _Anterior))
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: KPIs aprobados
+		lineageTag: 39de7e7d-93d8-47d9-85fa-10d52cf5ab38
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-01 color' =
+			VAR _Cambio = [Crecimiento mensual de ingresos]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: d6452426-4e8f-40ec-ba1f-fdb75f7024fc
+
+	/// KPI-05 | Responsable: Brian Rodriguez. Cambio de SUM(Unidades) frente al mes anterior; no se confunde la cantidad de una línea con el volumen mensual.
+	measure 'Crecimiento mensual de unidades vendidas' =
+			VAR _Anterior = [Unidades mes anterior]
+			RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Unidades vendidas] - _Anterior, _Anterior))
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: KPIs aprobados
+		lineageTag: e40eab96-377e-41d6-868f-34ae262bdd64
+
+	/// Color condicional según el cambio histórico. No representa cumplimiento de una meta que no fue fijada.
+	measure 'KPI-05 color' =
+			VAR _Cambio = [Crecimiento mensual de unidades vendidas]
+			RETURN SWITCH(
+			    TRUE(),
+			    ISBLANK(_Cambio), "#68798B",
+			    _Cambio = 0, "#68798B",
+			    _Cambio > 0, "#00897B",
+			    "#CB4B4B"
+			)
+		formatString: @
+		isHidden
+		displayFolder: Formato condicional
+		lineageTag: e92db318-a42c-41e3-a3f1-8624cf345a1c
+
+	/// Origen: public.fact_sales.sales_key.
+	column 'Clave venta'
+		dataType: int64
+		isHidden
+		lineageTag: c6be20bb-f55f-42c0-86e2-ded2b548665d
+		summarizeBy: none
+		sourceColumn: Clave venta
+
+	/// Origen: public.fact_sales.date_key.
+	column 'Clave fecha'
+		dataType: int64
+		isHidden
+		lineageTag: 16786215-f8ff-48e1-84cc-238643651113
+		summarizeBy: none
+		sourceColumn: Clave fecha
+
+	/// Origen: public.fact_sales.customer_key.
+	column 'Clave cliente'
+		dataType: int64
+		isHidden
+		lineageTag: a1ed27bb-8e9f-462b-8d26-da64e4b45089
+		summarizeBy: none
+		sourceColumn: Clave cliente
+
+	/// Origen: public.fact_sales.track_key.
+	column 'Clave canción'
+		dataType: int64
+		isHidden
+		lineageTag: ea8ae7e9-6910-4367-b4b4-d6264a19a1b1
+		summarizeBy: none
+		sourceColumn: Clave canción
+
+	/// Origen: public.fact_sales.employee_key.
+	column 'Clave empleado'
+		dataType: int64
+		isHidden
+		lineageTag: 66708aef-cc80-44ca-8f86-d2fcfe77eaf8
+		summarizeBy: none
+		sourceColumn: Clave empleado
+
+	/// Origen: public.fact_sales.invoice_id.
+	column 'Id factura'
+		dataType: int64
+		isHidden
+		lineageTag: e401d0a4-8f3e-4b9a-8a71-4ff77fb8131d
+		summarizeBy: none
+		sourceColumn: Id factura
+
+	/// Origen: public.fact_sales.invoice_line_id.
+	column 'Id línea'
+		dataType: int64
+		isHidden
+		lineageTag: 170fd266-15df-46b9-bc07-6f6e07e97385
+		summarizeBy: none
+		sourceColumn: Id línea
+
+	/// Origen: public.fact_sales.quantity.
+	column Unidades
+		dataType: int64
+		isHidden
+		lineageTag: a700ca7b-ad76-448c-86a4-4836de2910a0
+		summarizeBy: none
+		sourceColumn: Unidades
+
+	/// Origen: public.fact_sales.unit_price.
+	column 'Precio unitario'
+		dataType: decimal
+		isHidden
+		formatString: #,##0.00
+		lineageTag: 4772605b-47cf-41e4-a391-812cf90c7c8a
+		summarizeBy: none
+		sourceColumn: Precio unitario
+
+	/// Origen: public.fact_sales.total_amount.
+	column Importe
+		dataType: decimal
+		isHidden
+		formatString: #,##0.00
+		lineageTag: e60c070e-83e7-48a3-8c10-a2fa8fe9f6e2
+		summarizeBy: none
+		sourceColumn: Importe
+
+	partition Ventas = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database(Servidor, BaseDatos, [CreateNavigationProperties=false]),
+				    Tabla = Origen{[Schema="public", Item="fact_sales"]}[Data],
+				    Seleccion = Table.SelectColumns(Tabla, {"sales_key", "date_key", "customer_key", "track_key", "employee_key", "invoice_id", "invoice_line_id", "quantity", "unit_price", "total_amount"}),
+				    Nombres = Table.RenameColumns(Seleccion, {{"sales_key", "Clave venta"}, {"date_key", "Clave fecha"}, {"customer_key", "Clave cliente"}, {"track_key", "Clave canción"}, {"employee_key", "Clave empleado"}, {"invoice_id", "Id factura"}, {"invoice_line_id", "Id línea"}, {"quantity", "Unidades"}, {"unit_price", "Precio unitario"}, {"total_amount", "Importe"}}),
+				    Tipos = Table.TransformColumnTypes(Nombres, {{"Clave venta", Int64.Type}, {"Clave fecha", Int64.Type}, {"Clave cliente", Int64.Type}, {"Clave canción", Int64.Type}, {"Clave empleado", Int64.Type}, {"Id factura", Int64.Type}, {"Id línea", Int64.Type}, {"Unidades", Int64.Type}, {"Precio unitario", Currency.Type}, {"Importe", Currency.Type}})
+				in
+				    Tipos
+

@@ -1,0 +1,104 @@
+/// Tabla de negocio importada directamente desde chinook_dw.public.dim_date; modelo estrella del Proyecto 1.
+table Fecha
+	lineageTag: 271b0ef3-bd07-4b32-afde-9e222ba64a6c
+	dataCategory: Time
+
+	/// Periodo mensual seleccionado. Los KPIs mensuales requieren un único mes.
+	measure 'Mes seleccionado' = SELECTEDVALUE('Fecha'[Periodo], "Seleccione un mes")
+		formatString: @
+		displayFolder: Base
+		lineageTag: 3d10a68a-17d5-40a3-b5fe-92a5f0a1e8d9
+
+	/// Última fecha con venta en la fuente; no confundir con el último día del calendario.
+	measure 'Última venta' = MAXX(ALL('Ventas'), RELATED('Fecha'[Fecha]))
+		formatString: dd/MM/yyyy
+		displayFolder: Base
+		lineageTag: 9ee8fbc9-a747-44b8-bf19-9de95f40d29e
+
+	/// Aclara fecha de corte histórica y unidades monetarias.
+	measure 'Contexto del informe' = "Datos hasta " & FORMAT([Última venta], "dd/MM/yyyy") & " · Comparación mensual · Importes en UM"
+		formatString: @
+		displayFolder: Base
+		lineageTag: 82b59a9e-13c0-47f1-848f-915576fb84a1
+
+	/// Origen: public.dim_date.date_key.
+	column 'Clave fecha'
+		dataType: int64
+		isHidden
+		lineageTag: 4f957183-9af3-4cdc-b6d9-dbdbca07c88c
+		summarizeBy: none
+		sourceColumn: Clave fecha
+
+	/// Origen: public.dim_date.full_date.
+	column Fecha
+		dataType: dateTime
+		isKey
+		formatString: dd/MM/yyyy
+		lineageTag: e9ae1fc2-c3c5-407e-b827-8c17ca132771
+		summarizeBy: none
+		sourceColumn: Fecha
+
+	/// Origen: public.dim_date.year.
+	column Año
+		dataType: int64
+		lineageTag: 52bedf51-d0ae-4264-bffa-c677db7c7ede
+		summarizeBy: none
+		sourceColumn: Año
+
+	/// Origen: public.dim_date.month.
+	column Mes
+		dataType: int64
+		lineageTag: dd135d10-145c-4f34-aab1-cf3691c60171
+		summarizeBy: none
+		sourceColumn: Mes
+
+	/// Origen: public.dim_date.month_name.
+	column 'Nombre mes'
+		dataType: string
+		lineageTag: 17daf9ec-d940-4994-a95d-53825f556d19
+		summarizeBy: none
+		sourceColumn: Nombre mes
+		sortByColumn: Mes
+
+	/// Origen: public.dim_date.quarter.
+	column Trimestre
+		dataType: int64
+		lineageTag: 6ff29f6d-0bf7-4879-992f-b651e8024160
+		summarizeBy: none
+		sourceColumn: Trimestre
+
+	column Periodo
+		dataType: string
+		lineageTag: 96135b98-e7ce-4644-a7f1-0e096171667b
+		summarizeBy: none
+		sourceColumn: Periodo
+		sortByColumn: 'Orden periodo'
+
+	column 'Orden periodo'
+		dataType: int64
+		isHidden
+		lineageTag: 5f2a8876-75f9-4a6e-b05c-40e04e7cb016
+		summarizeBy: none
+		sourceColumn: Orden periodo
+
+	/// Primer dia del mes para ejes temporales continuos.
+	column 'Inicio mes' = DATE('Fecha'[Año], 'Fecha'[Mes], 1)
+		dataType: dateTime
+		formatString: MMM yyyy
+		lineageTag: 9a41e2d9-b17e-4169-9972-69578791955d
+		summarizeBy: none
+
+	partition Fecha = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database(Servidor, BaseDatos, [CreateNavigationProperties=false]),
+				    Tabla = Origen{[Schema="public", Item="dim_date"]}[Data],
+				    Seleccion = Table.SelectColumns(Tabla, {"date_key", "full_date", "year", "month", "month_name", "quarter"}),
+				    Nombres = Table.RenameColumns(Seleccion, {{"date_key", "Clave fecha"}, {"full_date", "Fecha"}, {"year", "Año"}, {"month", "Mes"}, {"month_name", "Nombre mes"}, {"quarter", "Trimestre"}}),
+				    Tipos = Table.TransformColumnTypes(Nombres, {{"Clave fecha", Int64.Type}, {"Fecha", type date}, {"Año", Int64.Type}, {"Mes", Int64.Type}, {"Nombre mes", type text}, {"Trimestre", Int64.Type}}),
+				    Periodos = Table.AddColumn(Tipos, "Periodo", each Date.ToText([Fecha], "yyyy-MM"), type text),
+				    Orden = Table.AddColumn(Periodos, "Orden periodo", each [Año] * 100 + [Mes], Int64.Type)
+				in
+				    Orden
+

@@ -1,0 +1,34 @@
+{
+  "fecha": "2026-11-20T18:49:55.258340-06:00",
+  "power_bi_desktop": "2.159.1231.0",
+  "fuente": "PostgreSQL / chinook_dw / localhost:5432",
+  "modo": "Importacion; actualizacion desde PostgreSQL",
+  "paginas": 4,
+  "kpis_aprobados": 8,
+  "medidas_dax": 39,
+  "comparaciones_kpi": 480,
+  "controles_totales": 780,
+  "diferencias": 0,
+  "casos_limite": "correcto",
+  "revision_visual": {
+    "paginas_revisadas": 4,
+    "mapa": "Cinco paises geocodificados; importes por burbuja",
+    "arbol": "Expandido por pais; cinco ramas visibles sin recortes",
+    "appsource": [
+      "Bullet Chart de Microsoft",
+      "Sankey de Microsoft"
+    ],
+    "responsables_en_tablero": false
+  },
+  "entregable_documental": {
+    "word": "documentacion/Proyecto2_Innova.docx",
+    "pdf": "documentacion/Proyecto2_Innova.pdf",
+    "paginas_pdf": 17
+  },
+  "metas_numericas_aprobadas": null,
+  "observaciones": [
+    "El documento aprobado no contiene metas numericas; se identifican comparaciones historicas.",
+    "El mapa clasico se conserva por el requisito Map del enunciado y genera una advertencia de obsolescencia.",
+    "La validacion CLI no puede descargar el esquema visualContainer/2.14.0 publicado por Desktop; las cuatro paginas se comprobaron en el propio Desktop."
+  ]
+}

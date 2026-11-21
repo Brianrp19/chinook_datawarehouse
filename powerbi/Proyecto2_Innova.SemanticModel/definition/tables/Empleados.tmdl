@@ -1,0 +1,46 @@
+/// Tabla de negocio importada directamente desde chinook_dw.public.dim_employee; modelo estrella del Proyecto 1.
+table Empleados
+	lineageTag: bb5b6827-acf6-49ae-9a34-a1f31b4238c1
+
+	/// Origen: public.dim_employee.employee_key.
+	column 'Clave empleado'
+		dataType: int64
+		isHidden
+		lineageTag: 9b4bccf9-b57f-4b56-94e7-840d8ea4c0d2
+		summarizeBy: none
+		sourceColumn: Clave empleado
+
+	/// Origen: public.dim_employee.employee_id.
+	column 'Id empleado'
+		dataType: int64
+		isHidden
+		lineageTag: fe89884f-d81d-4e0f-a589-4ddcbf331a46
+		summarizeBy: none
+		sourceColumn: Id empleado
+
+	/// Origen: public.dim_employee.full_name.
+	column 'Empleado de soporte'
+		dataType: string
+		lineageTag: 05c10b82-b4dc-4b49-8556-c394ff158b4f
+		summarizeBy: none
+		sourceColumn: Empleado de soporte
+
+	/// Origen: public.dim_employee.title.
+	column Cargo
+		dataType: string
+		lineageTag: 72bc4c31-25ff-4f13-ac05-6f6681180385
+		summarizeBy: none
+		sourceColumn: Cargo
+
+	partition Empleados = m
+		mode: import
+		source =
+				let
+				    Origen = PostgreSQL.Database(Servidor, BaseDatos, [CreateNavigationProperties=false]),
+				    Tabla = Origen{[Schema="public", Item="dim_employee"]}[Data],
+				    Seleccion = Table.SelectColumns(Tabla, {"employee_key", "employee_id", "full_name", "title"}),
+				    Nombres = Table.RenameColumns(Seleccion, {{"employee_key", "Clave empleado"}, {"employee_id", "Id empleado"}, {"full_name", "Empleado de soporte"}, {"title", "Cargo"}}),
+				    Tipos = Table.TransformColumnTypes(Nombres, {{"Clave empleado", Int64.Type}, {"Id empleado", Int64.Type}, {"Empleado de soporte", type text}, {"Cargo", type text}})
+				in
+				    Tipos
+

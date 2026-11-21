@@ -1,0 +1,98 @@
+[
+  {
+    "id": "KPI-01",
+    "nombre": "Crecimiento mensual de ingresos",
+    "responsable": "Cristopher Quiros",
+    "tabla_modelo": "Ventas",
+    "dax": "VAR _Anterior = [Ingresos mes anterior]\nRETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Ingresos] - _Anterior, _Anterior))",
+    "formato": "0.0%;-0.0%;0.0%",
+    "definicion": "Variación de ingresos frente al mes anterior. BLANK cuando no existe base o el denominador es cero.",
+    "sentido_comparacion": "mayor",
+    "unidad": "%",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-02",
+    "nombre": "Ingreso promedio por cliente comprador",
+    "responsable": "Cristopher Quiros",
+    "tabla_modelo": "Clientes",
+    "dax": "IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(CONVERT([Ingresos], DOUBLE), [Clientes compradores]))",
+    "formato": "#,##0.00 \"UM\"",
+    "definicion": "Ingresos del mes divididos entre clientes distintos que compraron en ese mes. No utiliza todos los clientes del catálogo.",
+    "sentido_comparacion": "mayor",
+    "unidad": "UM/cliente",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-03",
+    "nombre": "Clientes compradores activos por mes",
+    "responsable": "Jeremy Rodriguez",
+    "tabla_modelo": "Clientes",
+    "dax": "IF(HASONEVALUE('Fecha'[Periodo]), [Clientes compradores])",
+    "formato": "#,##0",
+    "definicion": "Clientes únicos con al menos una compra en el mes seleccionado.",
+    "sentido_comparacion": "mayor",
+    "unidad": "clientes",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-04",
+    "nombre": "Tasa de retención mensual de clientes",
+    "responsable": "Jeremy Rodriguez",
+    "tabla_modelo": "Clientes",
+    "dax": "IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Clientes retenidos], [Clientes mes anterior]))",
+    "formato": "0.0%",
+    "definicion": "Compradores presentes en ambos meses / compradores del mes anterior. Cero significa que ninguno volvió; BLANK indica ausencia de base.",
+    "sentido_comparacion": "mayor",
+    "unidad": "%",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-05",
+    "nombre": "Crecimiento mensual de unidades vendidas",
+    "responsable": "Brian Rodriguez",
+    "tabla_modelo": "Ventas",
+    "dax": "VAR _Anterior = [Unidades mes anterior]\nRETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Unidades vendidas] - _Anterior, _Anterior))",
+    "formato": "0.0%;-0.0%;0.0%",
+    "definicion": "Cambio de SUM(Unidades) frente al mes anterior; no se confunde la cantidad de una línea con el volumen mensual.",
+    "sentido_comparacion": "mayor",
+    "unidad": "%",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-06",
+    "nombre": "Concentración de ingresos por género musical",
+    "responsable": "Brian Rodriguez",
+    "tabla_modelo": "Canciones",
+    "dax": "VAR _Generos = ADDCOLUMNS(\n    VALUES('Canciones'[Género]),\n    \"__IngresosGenero\", CALCULATE([Ingresos])\n)\nVAR _Lider = MAXX(_Generos, [__IngresosGenero])\nRETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_Lider, [Ingresos]))",
+    "formato": "0.0%",
+    "definicion": "Participación del género de mayores ingresos entre los géneros del contexto seleccionado. Menor concentración favorece diversificación, no equivale por sí sola a mayor rentabilidad.",
+    "sentido_comparacion": "menor",
+    "unidad": "%",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-07",
+    "nombre": "Cantidad de países con ventas mensuales",
+    "responsable": "Miguel Cruz",
+    "tabla_modelo": "Clientes",
+    "dax": "VAR _PaisesConVenta = FILTER(\n    VALUES('Clientes'[País]),\n    CALCULATE(COUNTROWS('Ventas')) > 0\n)\nRETURN IF(HASONEVALUE('Fecha'[Periodo]), COUNTROWS(_PaisesConVenta))",
+    "formato": "#,##0",
+    "definicion": "Países de clientes que realmente compraron en el mes; no todos los países de la dimensión. La geografía corresponde al cliente actual del DW.",
+    "sentido_comparacion": "mayor",
+    "unidad": "países",
+    "meta_numerica_aprobada": null
+  },
+  {
+    "id": "KPI-08",
+    "nombre": "Concentración de ingresos en los cinco artistas principales",
+    "responsable": "Miguel Cruz",
+    "tabla_modelo": "Canciones",
+    "dax": "VAR _Artistas = ADDCOLUMNS(\n    VALUES('Canciones'[Id artista]),\n    \"__IngresosArtista\", CALCULATE([Ingresos])\n)\nVAR _ConVenta = FILTER(_Artistas, NOT ISBLANK([__IngresosArtista]) && [__IngresosArtista] > 0)\nVAR _Cinco = TOPN(\n    5, _ConVenta,\n    [__IngresosArtista], DESC,\n    'Canciones'[Id artista], ASC\n)\nVAR _IngresosTop = SUMX(_Cinco, [__IngresosArtista])\nRETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_IngresosTop, [Ingresos]))",
+    "formato": "0.0%",
+    "definicion": "Ingresos de exactamente los cinco artistas líderes / ingresos del contexto. Se desempata por Id artista para evitar que TOPN incluya más de cinco artistas empatados.",
+    "sentido_comparacion": "menor",
+    "unidad": "%",
+    "meta_numerica_aprobada": null
+  }
+]

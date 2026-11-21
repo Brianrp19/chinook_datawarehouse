@@ -1,0 +1,262 @@
+DEFINE
+    MEASURE 'Ventas'[Ingresos] =
+SUM('Ventas'[Importe])
+
+    MEASURE 'Ventas'[Unidades vendidas] =
+SUM('Ventas'[Unidades])
+
+    MEASURE 'Clientes'[Clientes compradores] =
+DISTINCTCOUNT('Ventas'[Clave cliente])
+
+    MEASURE 'Ventas'[Facturas] =
+DISTINCTCOUNT('Ventas'[Id factura])
+
+    MEASURE 'Fecha'[Mes seleccionado] =
+SELECTEDVALUE('Fecha'[Periodo], "Seleccione un mes")
+
+    MEASURE 'Fecha'[Última venta] =
+MAXX(ALL('Ventas'), RELATED('Fecha'[Fecha]))
+
+    MEASURE 'Ventas'[Ingresos mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Ingresos], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Ventas'[Unidades mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Unidades vendidas], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[Clientes mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Clientes compradores], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[Clientes retenidos] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+VAR _ClientesAntes = CALCULATETABLE(
+    VALUES('Ventas'[Clave cliente]), REMOVEFILTERS('Fecha'), _FechasAnteriores
+)
+VAR _ClientesAhora = VALUES('Ventas'[Clave cliente])
+RETURN IF(
+    HASONEVALUE('Fecha'[Periodo]) && COUNTROWS(_ClientesAntes) > 0,
+    COALESCE(COUNTROWS(INTERSECT(_ClientesAntes, _ClientesAhora)), 0)
+)
+
+    MEASURE 'Ventas'[Crecimiento mensual de ingresos] =
+VAR _Anterior = [Ingresos mes anterior]
+RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Ingresos] - _Anterior, _Anterior))
+
+    MEASURE 'Ventas'[KPI-01 color] =
+VAR _Cambio = [Crecimiento mensual de ingresos]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Clientes'[Ingreso promedio por cliente comprador] =
+IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(CONVERT([Ingresos], DOUBLE), [Clientes compradores]))
+
+    MEASURE 'Clientes'[KPI-02 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Ingreso promedio por cliente comprador], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[KPI-02 cambio] =
+VAR _Actual = [Ingreso promedio por cliente comprador]
+VAR _Anterior = [KPI-02 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Clientes'[KPI-02 color] =
+VAR _Cambio = [KPI-02 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Clientes'[Clientes compradores activos por mes] =
+IF(HASONEVALUE('Fecha'[Periodo]), [Clientes compradores])
+
+    MEASURE 'Clientes'[KPI-03 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Clientes compradores activos por mes], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[KPI-03 cambio] =
+VAR _Actual = [Clientes compradores activos por mes]
+VAR _Anterior = [KPI-03 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Clientes'[KPI-03 color] =
+VAR _Cambio = [KPI-03 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Clientes'[Tasa de retención mensual de clientes] =
+IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Clientes retenidos], [Clientes mes anterior]))
+
+    MEASURE 'Clientes'[KPI-04 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Tasa de retención mensual de clientes], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[KPI-04 cambio] =
+VAR _Actual = [Tasa de retención mensual de clientes]
+VAR _Anterior = [KPI-04 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Clientes'[KPI-04 color] =
+VAR _Cambio = [KPI-04 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Ventas'[Crecimiento mensual de unidades vendidas] =
+VAR _Anterior = [Unidades mes anterior]
+RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE([Unidades vendidas] - _Anterior, _Anterior))
+
+    MEASURE 'Ventas'[KPI-05 color] =
+VAR _Cambio = [Crecimiento mensual de unidades vendidas]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Canciones'[Concentración de ingresos por género musical] =
+VAR _Generos = ADDCOLUMNS(
+    VALUES('Canciones'[Género]),
+    "__IngresosGenero", CALCULATE([Ingresos])
+)
+VAR _Lider = MAXX(_Generos, [__IngresosGenero])
+RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_Lider, [Ingresos]))
+
+    MEASURE 'Canciones'[KPI-06 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Concentración de ingresos por género musical], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Canciones'[KPI-06 cambio] =
+VAR _Actual = [Concentración de ingresos por género musical]
+VAR _Anterior = [KPI-06 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Canciones'[KPI-06 color] =
+VAR _Cambio = [KPI-06 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio < 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Clientes'[Cantidad de países con ventas mensuales] =
+VAR _PaisesConVenta = FILTER(
+    VALUES('Clientes'[País]),
+    CALCULATE(COUNTROWS('Ventas')) > 0
+)
+RETURN IF(HASONEVALUE('Fecha'[Periodo]), COUNTROWS(_PaisesConVenta))
+
+    MEASURE 'Clientes'[KPI-07 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Cantidad de países con ventas mensuales], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Clientes'[KPI-07 cambio] =
+VAR _Actual = [Cantidad de países con ventas mensuales]
+VAR _Anterior = [KPI-07 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Clientes'[KPI-07 color] =
+VAR _Cambio = [KPI-07 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio > 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Canciones'[Concentración de ingresos en los cinco artistas principales] =
+VAR _Artistas = ADDCOLUMNS(
+    VALUES('Canciones'[Id artista]),
+    "__IngresosArtista", CALCULATE([Ingresos])
+)
+VAR _ConVenta = FILTER(_Artistas, NOT ISBLANK([__IngresosArtista]) && [__IngresosArtista] > 0)
+VAR _Cinco = TOPN(
+    5, _ConVenta,
+    [__IngresosArtista], DESC,
+    'Canciones'[Id artista], ASC
+)
+VAR _IngresosTop = SUMX(_Cinco, [__IngresosArtista])
+RETURN IF(HASONEVALUE('Fecha'[Periodo]), DIVIDE(_IngresosTop, [Ingresos]))
+
+    MEASURE 'Canciones'[KPI-08 mes anterior] =
+VAR _FechasAnteriores = PREVIOUSMONTH('Fecha'[Fecha])
+RETURN
+    IF(
+        HASONEVALUE('Fecha'[Periodo]),
+        CALCULATE([Concentración de ingresos en los cinco artistas principales], REMOVEFILTERS('Fecha'), _FechasAnteriores)
+    )
+
+    MEASURE 'Canciones'[KPI-08 cambio] =
+VAR _Actual = [Concentración de ingresos en los cinco artistas principales]
+VAR _Anterior = [KPI-08 mes anterior]
+RETURN IF(NOT ISBLANK(_Actual) && NOT ISBLANK(_Anterior), _Actual - _Anterior)
+
+    MEASURE 'Canciones'[KPI-08 color] =
+VAR _Cambio = [KPI-08 cambio]
+RETURN SWITCH(
+    TRUE(),
+    ISBLANK(_Cambio), "#68798B",
+    _Cambio = 0, "#68798B",
+    _Cambio < 0, "#00897B",
+    "#CB4B4B"
+)
+
+    MEASURE 'Fecha'[Contexto del informe] =
+"Datos hasta " & FORMAT([Última venta], "dd/MM/yyyy") & " · Comparación mensual · Importes en UM"
+
+EVALUATE ROW("Ingresos", [Ingresos], "Facturas", [Facturas])

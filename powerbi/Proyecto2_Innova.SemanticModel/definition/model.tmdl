@@ -1,0 +1,16 @@
+model Model
+	culture: es-CR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: es-CR
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
+
+ref table Ventas
+ref table Fecha
+ref table Clientes
+ref table Canciones
+ref table Empleados
+

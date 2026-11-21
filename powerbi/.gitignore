@@ -1,0 +1,6 @@
+# Caché local de Power BI: cada integrante configura sus credenciales.
+.pbi/
+**/.pbi/
+**/localSettings.json
+**/unappliedChanges.json
+~$*

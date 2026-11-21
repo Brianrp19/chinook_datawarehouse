@@ -1,0 +1,16 @@
+relationship Ventas_Fecha
+	fromColumn: Ventas.'Clave fecha'
+	toColumn: Fecha.'Clave fecha'
+
+relationship Ventas_Clientes
+	fromColumn: Ventas.'Clave cliente'
+	toColumn: Clientes.'Clave cliente'
+
+relationship Ventas_Canciones
+	fromColumn: Ventas.'Clave canción'
+	toColumn: Canciones.'Clave canción'
+
+relationship Ventas_Empleados
+	fromColumn: Ventas.'Clave empleado'
+	toColumn: Empleados.'Clave empleado'
+
